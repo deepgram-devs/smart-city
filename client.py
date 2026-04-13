@@ -125,8 +125,16 @@ class VoiceAgent:
         self.speaker = None
         self.ws = None
         self.is_running = False
+        self._starting = True  # True during init/setup, prevents false stale detection
         self.loop = None
         self._greeting_done = False  # True after first user utterance; gates output suppression
+
+    @property
+    def is_stale(self):
+        """True when the agent is dead and should be cleaned up."""
+        if self._starting:
+            return False  # Still initializing, not stale
+        return not self.is_running or not self.ws or self.ws.closed
 
     def set_loop(self, loop):
         self.loop = loop
@@ -292,7 +300,9 @@ class VoiceAgent:
 
     async def run(self):
         if not await self.setup():
+            self._starting = False
             return
+        self._starting = False
         self.is_running = True
         try:
             await asyncio.gather(self.sender(), self.receiver(), self.keep_alive())
@@ -383,7 +393,7 @@ def api_start():
     """Start the voice agent session (for testing without browser)."""
     global voice_agent, voice_agent_thread
     if voice_agent is not None:
-        if not voice_agent.is_running or not voice_agent.ws or voice_agent.ws.closed:
+        if voice_agent.is_stale:
             logger.info("Stale voice agent detected via API, cleaning up before restart")
             handle_stop()
         else:
@@ -472,8 +482,7 @@ def handle_start(data=None):
     global voice_agent, voice_agent_thread
     logger.info(f"start_voice_agent received, data={data}")
     if voice_agent is not None:
-        # If the old agent's WS is dead, clean it up instead of rejecting
-        if not voice_agent.is_running or not voice_agent.ws or voice_agent.ws.closed:
+        if voice_agent.is_stale:
             logger.info("Stale voice agent detected, cleaning up before restart")
             handle_stop()
         else:

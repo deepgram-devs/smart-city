@@ -733,6 +733,7 @@ function resampleToInt16_16k(float32, inputRate) {
 // Session control
 // ---------------------------------------------------------------------------
 async function startSession() {
+  console.log('[SAGA] startSession called, socket connected:', socket.connected);
   document.getElementById('welcome').style.display = 'none';
   document.getElementById('startBtn').style.display = 'none';
   document.getElementById('stopBtn').style.display = '';
@@ -757,12 +758,13 @@ async function startSession() {
     source.connect(scriptProcessor);
     scriptProcessor.connect(audioCtx.destination);
 
+    console.log('[SAGA] emitting start_voice_agent');
     socket.emit('start_voice_agent', { browserAudio: true });
     isRunning = true;
     hotwordState = 'listening';
     setStatus('ambient');
   } catch (err) {
-    console.error('Mic error:', err);
+    console.error('[SAGA] startSession error:', err);
     alert('Microphone access required');
     document.getElementById('startBtn').style.display = '';
     document.getElementById('stopBtn').style.display = 'none';
