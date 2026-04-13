@@ -413,7 +413,7 @@ def api_inject():
         asyncio.run_coroutine_threadsafe(
             voice_agent.ws.send(json.dumps({
                 "type": "InjectUserMessage",
-                "message": text,
+                "content": text,
             })),
             voice_agent.loop,
         )
