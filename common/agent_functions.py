@@ -81,7 +81,7 @@ CHECK_HOTWORD_DEFINITION = {
         "MANDATORY: Call this function before responding to ANY user input. "
         "Pass ONLY the most recent utterance. "
         "If the result has active=false, do not speak at all. "
-        "If the result has active=true, respond naturally to the 'query' field only."
+        "If the result has active=true, process the 'query' field as the user's request: call ALL relevant functions, then respond with the combined results."
     ),
     "parameters": {
         "type": "object",

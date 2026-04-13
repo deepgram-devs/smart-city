@@ -86,7 +86,7 @@ def build_settings() -> dict:
             f"No narration, no 'let me check', no 'let me verify', no thinking out loud. "
             f"Call the function SILENTLY, wait for the result, THEN decide whether to speak.\n"
             f"- If check_hotword returns {{\"active\": false}}: Produce ONLY an empty string. Zero tokens. No words. Nothing.\n"
-            f"- If check_hotword returns {{\"active\": true}}: Respond naturally to the \"query\" field.\n"
+            f"- If check_hotword returns {{\"active\": true}}: Process the \"query\" field as the user's request. Call ALL relevant functions, then respond with the combined results.\n"
             f"This applies to EVERY utterance, no exceptions. Your greeting is spoken exactly ONCE at session start.\n\n"
             f"ENDING A HOTWORD CONVERSATION (CRITICAL):\n"
             f"You MUST call close_hotword_session immediately when ANY of these happen:\n"
@@ -105,7 +105,7 @@ def build_settings() -> dict:
             "language": cfg.get("language", "en"),
             "listen": {"provider": {"type": "deepgram", "model": "nova-3", "keyterms": ["Hey Saga", "Saga"]}},
             "think": {
-                "provider": {"type": "anthropic", "model": "claude-sonnet-4-6", "temperature": 0.7},
+                "provider": {"type": "anthropic", "model": "claude-haiku-4-5", "temperature": 0.7},
                 "prompt": system_prompt,
                 "functions": functions,
             },
@@ -151,11 +151,17 @@ class VoiceAgent:
             return False
 
     async def _handle_hotword_activation(self, result):
-        """Handle hotword activation: emit state on fresh activation."""
+        """Handle hotword activation: emit state and inject filler on fresh activation."""
         if not result.get("active"):
             return
         socketio.emit("hotword_state", {"state": "active"})
         if result.get("freshly_activated"):
+            filler = get_random_filler()
+            logger.info(f"Injecting filler: {filler}")
+            await self.ws.send(json.dumps({
+                "type": "InjectAgentMessage",
+                "message": filler,
+            }))
             socketio.emit("show_viz", {"svg": "saga-loading"})
 
     async def sender(self):
