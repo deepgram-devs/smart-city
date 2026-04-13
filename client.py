@@ -378,6 +378,29 @@ def api_reset():
     return jsonify({"status": "reset"})
 
 
+@app.route("/api/start", methods=["POST"])
+def api_start():
+    """Start the voice agent session (for testing without browser)."""
+    global voice_agent, voice_agent_thread
+    if voice_agent is not None:
+        return jsonify({"error": "already running"}), 400
+    reset_city_state()
+    voice_agent = VoiceAgent()
+    voice_agent_thread = threading.Thread(target=_run_agent, daemon=True)
+    voice_agent_thread.start()
+    return jsonify({"status": "started"})
+
+
+@app.route("/api/stop", methods=["POST"])
+def api_stop():
+    """Stop the voice agent session (for testing without browser)."""
+    global voice_agent
+    if not voice_agent:
+        return jsonify({"error": "not running"}), 400
+    handle_stop()
+    return jsonify({"status": "stopped"})
+
+
 @app.route("/api/inject", methods=["POST"])
 def api_inject():
     """Inject a user message into the voice agent session (for testing)."""
