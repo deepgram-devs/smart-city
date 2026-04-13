@@ -4,7 +4,7 @@
   "company": "Saga Smart City",
   "personality": "Calm, intelligent, future-forward, civic-minded",
   "language": "en",
-  "voiceModel": "aura-2-arcas-en",
+  "voiceModel": "aura-2-aries-en",
   "voiceName": "SAGA",
   "hotword": "Hey Saga",
   "mode": "voice_agent",
