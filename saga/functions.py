@@ -321,31 +321,38 @@ async def book_emergency_accommodation(params):
 
 
 # ---------------------------------------------------------------------------
-# Agent filler (requires websocket, handled specially in client.py)
+# Filler phrases (used by client.py server-side injection, not LLM-driven)
 # ---------------------------------------------------------------------------
 
-FILLER_MESSAGES = {
-    "lookup": "One moment, sir.",
-    "processing": "Processing.",
-    "analyzing": "Analyzing now.",
-    "general": "One moment.",
-}
+import random
+
+FILLER_PHRASES = [
+    "One moment.",
+    "One moment, sir.",
+    "Pulling that up.",
+    "Checking now.",
+    "Accessing city systems.",
+    "Running the query.",
+    "Let me check.",
+    "Querying the grid.",
+    "Scanning the network.",
+    "Retrieving that data.",
+    "Processing your request.",
+    "Understood. Checking.",
+    "On it.",
+    "Accessing records.",
+    "Analyzing.",
+    "Right away.",
+    "Stand by.",
+    "Looking into it.",
+    "One second.",
+    "Pulling city data.",
+]
 
 
-async def agent_filler(websocket, params):
-    """Immediately speak a filler phrase via InjectAgentMessage while LLM thinks."""
-    message_type = params.get("message_type", "general")
-    filler_text = FILLER_MESSAGES.get(message_type, FILLER_MESSAGES["general"])
-
-    inject_message = {
-        "type": "InjectAgentMessage",
-        "message": filler_text,
-    }
-
-    return {
-        "inject_message": inject_message,
-        "function_response": {"status": "queued", "message_type": message_type},
-    }
+def get_random_filler() -> str:
+    """Return a random filler phrase for server-side injection."""
+    return random.choice(FILLER_PHRASES)
 
 
 # ---------------------------------------------------------------------------

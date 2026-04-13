@@ -19,7 +19,7 @@ from common.agent_functions import (
     set_hotword,
     is_conversation_active,
 )
-from saga.functions import SAGA_FUNCTION_MAP, agent_filler
+from saga.functions import SAGA_FUNCTION_MAP, get_random_filler
 from saga.definitions import SAGA_FUNCTION_DEFINITIONS
 from saga.mock_data import get_city_state, reset_city_state, CITY_STATE
 
@@ -184,24 +184,6 @@ class VoiceAgent:
                                 }))
                                 continue
 
-                            if fn_name == "agent_filler":
-                                # Special handling: speak filler immediately
-                                result = await agent_filler(self.ws, params)
-                                inject_msg = result["inject_message"]
-                                fn_response = result["function_response"]
-
-                                # Send function response first
-                                await self.ws.send(json.dumps({
-                                    "type": "FunctionCallResponse",
-                                    "id": fn_id,
-                                    "name": fn_name,
-                                    "content": json.dumps(fn_response),
-                                }))
-                                # Then inject the filler so it's spoken immediately
-                                logger.info(f"Injecting filler: {inject_msg['message']}")
-                                await self.ws.send(json.dumps(inject_msg))
-                                continue
-
                             func = FUNCTION_MAP.get(fn_name)
                             if func:
                                 result = await func(params)
@@ -212,12 +194,15 @@ class VoiceAgent:
                             if fn_name == "check_hotword":
                                 if result.get("active"):
                                     socketio.emit("hotword_state", {"state": "active"})
-                                    # Auto-inject filler when hotword activates
-                                    logger.info("Auto-injecting filler on hotword activation")
-                                    await self.ws.send(json.dumps({
-                                        "type": "InjectAgentMessage",
-                                        "message": "One moment.",
-                                    }))
+                                    # Only inject filler on FRESH activation (hotword spoken),
+                                    # not on continued conversation within the same session
+                                    if result.get("freshly_activated"):
+                                        filler = get_random_filler()
+                                        logger.info(f"Auto-injecting filler: {filler}")
+                                        await self.ws.send(json.dumps({
+                                            "type": "InjectAgentMessage",
+                                            "message": filler,
+                                        }))
                                 # Don't emit 'listening' here - only on close
                             elif fn_name == "close_hotword_session":
                                 socketio.emit("hotword_state", {"state": "listening"})

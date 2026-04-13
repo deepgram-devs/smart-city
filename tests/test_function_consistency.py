@@ -1,24 +1,16 @@
 """Verify function definitions and implementations stay in sync."""
 
 from saga.definitions import SAGA_FUNCTION_DEFINITIONS
-from saga.functions import SAGA_FUNCTION_MAP, agent_filler
+from saga.functions import SAGA_FUNCTION_MAP, get_random_filler, FILLER_PHRASES
 from common.agent_functions import HOTWORD_FUNCTION_MAP
-
-# Functions handled specially in client.py (need websocket access)
-WEBSOCKET_FUNCTIONS = {"agent_filler"}
 
 
 def test_every_definition_has_implementation():
-    """Every function defined in definitions.py must have an entry in SAGA_FUNCTION_MAP or be a websocket function."""
+    """Every function defined in definitions.py must have an entry in SAGA_FUNCTION_MAP."""
     definition_names = {d["name"] for d in SAGA_FUNCTION_DEFINITIONS}
-    map_names = set(SAGA_FUNCTION_MAP.keys()) | WEBSOCKET_FUNCTIONS
+    map_names = set(SAGA_FUNCTION_MAP.keys())
     missing = definition_names - map_names
     assert not missing, f"Definitions without implementations: {missing}"
-
-
-def test_websocket_functions_are_callable():
-    """Websocket-handled functions must actually exist as importable callables."""
-    assert callable(agent_filler)
 
 
 def test_every_implementation_has_definition():
@@ -39,3 +31,10 @@ def test_definition_names_are_unique():
     """No duplicate function names in definitions."""
     names = [d["name"] for d in SAGA_FUNCTION_DEFINITIONS]
     assert len(names) == len(set(names)), f"Duplicate names: {[n for n in names if names.count(n) > 1]}"
+
+
+def test_filler_phrases_exist():
+    """Filler phrase list should have variety."""
+    assert len(FILLER_PHRASES) >= 10
+    assert callable(get_random_filler)
+    assert get_random_filler() in FILLER_PHRASES

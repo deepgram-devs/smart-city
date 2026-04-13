@@ -44,7 +44,7 @@ async def check_hotword(params):
     if _conversation_active:
         if now - _last_activity_time < CONVERSATION_TIMEOUT:
             _last_activity_time = now
-            return {"active": True, "query": transcript}
+            return {"active": True, "freshly_activated": False, "query": transcript}
         else:
             _conversation_active = False
 
@@ -56,7 +56,7 @@ async def check_hotword(params):
         query = transcript[match.end():].strip().lstrip('.,!? ')
         _conversation_active = True
         _last_activity_time = now
-        return {"active": True, "query": query or transcript}
+        return {"active": True, "freshly_activated": True, "query": query or transcript}
     else:
         return {
             "active": False,
