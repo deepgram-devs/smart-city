@@ -156,20 +156,34 @@ async def check_energy_credits(params):
 # Scenario 3: Power User / Smart Work
 # ---------------------------------------------------------------------------
 
+REVENUE_HISTORY = {
+    "last month": {"revenue_usd": 1_840_000_000, "formatted": "$1.84 billion", "tenant_density": 12_400},
+    "previous month": {"revenue_usd": 1_710_000_000, "formatted": "$1.71 billion", "tenant_density": 12_100},
+    "two months ago": {"revenue_usd": 1_580_000_000, "formatted": "$1.58 billion", "tenant_density": 11_800},
+    "three months ago": {"revenue_usd": 1_520_000_000, "formatted": "$1.52 billion", "tenant_density": 11_500},
+    "q1 2026": {"revenue_usd": 5_130_000_000, "formatted": "$5.13 billion", "tenant_density": 12_100},
+    "ytd": {"revenue_usd": 5_130_000_000, "formatted": "$5.13 billion", "tenant_density": 12_100},
+}
+
+
 async def analyze_revenue(params):
     """Analyze revenue from a city source."""
     source = params.get("source", "Smart Grid")
-    period = params.get("period", "last month")
+    period = params.get("period", "last month").lower()
 
-    rev = CITY_STATE["revenue"]
+    # Match period to historical data
+    data = REVENUE_HISTORY.get(period, REVENUE_HISTORY["last month"])
+
     log_action(f"Revenue analysis: {source}, {period}")
     return {
         "source": source,
         "period": period,
-        "revenue_usd": rev["smart_grid_monthly_usd"],
-        "formatted": "$1.84 billion",
-        "yoy_growth_pct": rev["yoy_growth_pct"],
-        "tenant_density": rev["tenant_density"],
+        "revenue_usd": data["revenue_usd"],
+        "formatted": data["formatted"],
+        "tenant_density": data["tenant_density"],
+        "yoy_growth_pct": 14.2,
+        "mom_growth_pct": 7.6,
+        "note": "Month-over-month growth driven by BPO sector expansion and Convention Center energy arbitrage",
     }
 
 
