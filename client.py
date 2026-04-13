@@ -16,6 +16,8 @@ from common.agent_functions import (
     HOTWORD_FUNCTION_MAP,
     CHECK_HOTWORD_DEFINITION,
     CLOSE_HOTWORD_SESSION_DEFINITION,
+    CLOSE_TRIGGERS,
+    CLOSE_IGNORE,
     set_hotword,
     is_conversation_active,
     check_hotword,
@@ -37,18 +39,6 @@ AUDIO_SETTINGS = {
 }
 
 HOTWORD_BYPASS = {"check_hotword", "close_hotword_session"}
-
-VIZ_MAP = {
-    "get_grid_status": "saga-smart-grid",
-    "analyze_energy_spike": "saga-smart-grid",
-    "get_zone_overview": "saga-smart-grid",
-    "book_pod": "transit-telemetry",
-    "activate_flood_gates": "flood-gate",
-    "get_weather_alert": "flood-gate",
-    "send_mass_alert": "flood-gate",
-    "check_backup_power": "flood-gate",
-    "book_emergency_accommodation": "flood-gate",
-}
 
 # Flask setup
 app = Flask(__name__, static_folder="./static", static_url_path="/static")
@@ -89,12 +79,12 @@ def build_settings() -> dict:
             f"- If check_hotword returns {{\"active\": true}}: Process the \"query\" field as the user's request. Call ALL relevant functions, then respond with the combined results.\n"
             f"This applies to EVERY utterance, no exceptions. Your greeting is spoken exactly ONCE at session start.\n\n"
             f"ENDING A HOTWORD CONVERSATION (CRITICAL):\n"
-            f"You MUST call close_hotword_session immediately when ANY of these happen:\n"
-            f"- User says thanks, thank you, got it, okay, perfect, that's all, great, bye, stop listening, that's it, never mind\n"
-            f"- User's question has been fully answered and they acknowledge it\n"
+            f"Call close_hotword_session ONLY when the user clearly signals they are DONE:\n"
+            f"- User says {', '.join(CLOSE_TRIGGERS)}\n"
             f"- User explicitly asks you to stop\n"
+            f"Do NOT close on positive feedback like {', '.join(CLOSE_IGNORE)}. These often precede a follow-up request.\n"
             f"Do NOT have a prolonged goodbye. Do NOT say 'If you need anything else'. "
-            f"Call close_hotword_session FIRST, then say at most 3 words like 'Standing by.' and produce no further output."
+            f"Call close_hotword_session FIRST, then say ONLY 'Standing by.' and produce no further output."
         )
         functions += [CHECK_HOTWORD_DEFINITION, CLOSE_HOTWORD_SESSION_DEFINITION]
 
@@ -105,7 +95,7 @@ def build_settings() -> dict:
             "language": cfg.get("language", "en"),
             "listen": {"provider": {"type": "deepgram", "model": "nova-3", "keyterms": ["Hey Saga", "Saga"]}},
             "think": {
-                "provider": {"type": "anthropic", "model": "claude-haiku-4-5", "temperature": 0.7},
+                "provider": {"type": "open_ai", "model": "gpt-5.4-nano", "temperature": 0.7},
                 "prompt": system_prompt,
                 "functions": functions,
             },
@@ -170,7 +160,6 @@ class VoiceAgent:
                 "type": "InjectAgentMessage",
                 "message": filler,
             }))
-            socketio.emit("show_viz", {"svg": "saga-loading"})
 
     async def sender(self):
         try:
@@ -250,15 +239,25 @@ class VoiceAgent:
                             if fn_name == "check_hotword":
                                 if result.get("active"):
                                     await self._handle_hotword_activation(result)
+                                elif result.get("timed_out"):
+                                    # Visual-only transition (no InjectAgentMessage to
+                                    # avoid polluting LLM context with "Standing by.")
+                                    socketio.emit("hotword_state", {"state": "listening"})
+                                    socketio.emit("session_timeout")
                                 else:
                                     self.speaker.stop()  # Kill any leaked audio
                             elif fn_name == "close_hotword_session":
                                 socketio.emit("hotword_state", {"state": "listening"})
 
-                            # Emit visualization for SAGA functions
-                            viz = VIZ_MAP.get(fn_name)
-                            if viz:
-                                socketio.emit("show_viz", {"svg": viz})
+                            # Emit function result to frontend for toasts/dashboard
+                            if fn_name not in HOTWORD_BYPASS:
+                                event = {"name": fn_name, "result": result}
+                                if fn_name == "update_dashboard":
+                                    title = params.get("title", "Widget")
+                                    event["widget_id"] = title
+                                    event["widget_title"] = title
+                                    event["widget_color"] = params.get("color", "blue")
+                                socketio.emit("function_executed", event)
 
                             response_payload = {
                                 "type": "FunctionCallResponse",
@@ -280,12 +279,7 @@ class VoiceAgent:
                             logger.error(f"Deepgram error: {msg}")
 
                         else:
-                            # Verbose: log full message for investigation
-                            content = msg.get("content", "")
-                            if content:
-                                logger.info(f"Deepgram: {msg_type} | {str(content)[:200]}")
-                            else:
-                                logger.info(f"Deepgram: {msg_type}")
+                            logger.info(f"Deepgram: {msg_type}")
 
                     elif isinstance(message, bytes):
                         # Suppress audio when hotword not active (after greeting)

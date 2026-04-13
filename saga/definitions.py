@@ -247,4 +247,39 @@ SAGA_FUNCTION_DEFINITIONS = [
             },
         },
     },
+    # ----- Generic Dashboard Widget -----
+    {
+        "name": "update_dashboard",
+        "description": (
+            "Display a widget card on the city dashboard with structured data. "
+            "The data parameter IS the content shown to the user, so populate it with "
+            "all relevant information. Generate realistic city data for any query. "
+            "Each unique title creates a new widget; reusing a title updates it. "
+            "Call this for ANY query, including those without a dedicated function."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "description": "Widget card title (e.g., 'Grocery Deliveries', 'Air Quality')",
+                },
+                "data": {
+                    "type": "string",
+                    "description": (
+                        "JSON string of key-value pairs to display as widget rows. "
+                        "MUST contain actual data. "
+                        "Example: '{\"store\": \"FreshMart Phase 1\", \"items\": \"Milk, Eggs, Bread\", "
+                        "\"total\": \"$47.80\", \"status\": \"Delivered\", \"eta\": \"2:30 PM\"}'"
+                    ),
+                },
+                "color": {
+                    "type": "string",
+                    "enum": ["blue", "green", "amber", "red"],
+                    "description": "blue=info, green=good, amber=warning, red=alert",
+                },
+            },
+            "required": ["title", "data"],
+        },
+    },
 ]

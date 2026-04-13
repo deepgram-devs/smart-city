@@ -1,5 +1,7 @@
 """SAGA function implementations. All return scripted mock data."""
 
+import json
+
 from saga.mock_data import CITY_STATE, log_action
 
 
@@ -356,6 +358,24 @@ def get_random_filler() -> str:
 
 
 # ---------------------------------------------------------------------------
+# Generic dashboard widget
+# ---------------------------------------------------------------------------
+
+async def update_dashboard(params):
+    """Generic widget: LLM controls title, data, and color."""
+    title = params.get("title", "Widget")
+    raw = params.get("data", "{}")
+    try:
+        data = json.loads(raw) if isinstance(raw, str) else raw
+    except (ValueError, TypeError):
+        data = {"info": str(raw)}
+    if not data:
+        data = {"status": "No data available"}
+    log_action(f"Dashboard: {title}")
+    return data
+
+
+# ---------------------------------------------------------------------------
 # Function map
 # ---------------------------------------------------------------------------
 
@@ -380,4 +400,6 @@ SAGA_FUNCTION_MAP = {
     "send_mass_alert": send_mass_alert,
     "check_backup_power": check_backup_power,
     "book_emergency_accommodation": book_emergency_accommodation,
+    # Generic
+    "update_dashboard": update_dashboard,
 }

@@ -6,7 +6,7 @@
 <title>SAGA</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -14,6 +14,7 @@
     --bg: #0a0a0f;
     --surface: #12121a;
     --surface-2: #1a1a25;
+    --surface-3: #22222f;
     --border: rgba(255,255,255,0.06);
     --text: #e8e8ed;
     --text-dim: #6b6b7b;
@@ -34,10 +35,10 @@
     overflow: hidden;
   }
 
-  /* Layout */
+  /* Layout: dashboard-forward, transcript compact */
   .app {
     display: grid;
-    grid-template-columns: 320px 1fr 300px;
+    grid-template-columns: 1fr 340px 240px;
     grid-template-rows: 56px 1fr;
     height: 100vh;
     gap: 1px;
@@ -54,77 +55,31 @@
     padding: 0 24px;
   }
 
-  .logo {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
+  .logo { display: flex; align-items: center; gap: 10px; }
 
   .logo-mark {
-    width: 28px;
-    height: 28px;
-    border-radius: 8px;
+    width: 28px; height: 28px; border-radius: 8px;
     background: linear-gradient(135deg, var(--accent), #7c3aed);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 600;
-    font-size: 12px;
-    color: white;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 600; font-size: 12px; color: white;
   }
 
-  .logo-text {
-    font-size: 15px;
-    font-weight: 600;
-    letter-spacing: 2px;
-    color: var(--text);
-  }
+  .logo-text { font-size: 15px; font-weight: 600; letter-spacing: 2px; }
+  .logo-sub { font-size: 11px; color: var(--text-dim); font-weight: 400; letter-spacing: 0.5px; }
 
-  .logo-sub {
-    font-size: 11px;
-    color: var(--text-dim);
-    font-weight: 400;
-    letter-spacing: 0.5px;
-  }
-
-  .header-right {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-  }
+  .header-right { display: flex; align-items: center; gap: 16px; }
 
   .status-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--text-muted);
-    transition: background 0.3s;
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--text-muted); transition: background 0.3s;
   }
-  .status-dot.ambient {
-    background: var(--amber);
-    box-shadow: 0 0 6px rgba(251, 191, 36, 0.3);
-    animation: pulse 3s infinite;
-  }
-  .status-dot.active {
-    background: var(--green);
-    box-shadow: 0 0 8px rgba(52, 211, 153, 0.5);
-  }
-  .status-dot.listening {
-    background: var(--accent);
-    box-shadow: 0 0 8px rgba(74, 158, 255, 0.5);
-    animation: pulse 2s infinite;
-  }
+  .status-dot.ambient { background: var(--amber); box-shadow: 0 0 6px rgba(251,191,36,0.3); animation: pulse 3s infinite; }
+  .status-dot.active { background: var(--green); box-shadow: 0 0 8px rgba(52,211,153,0.5); }
+  .status-dot.listening { background: var(--accent); box-shadow: 0 0 8px rgba(74,158,255,0.5); animation: pulse 2s infinite; }
 
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
-  }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
 
-  .status-label {
-    font-size: 12px;
-    color: var(--text-dim);
-    font-weight: 400;
-  }
+  .status-label { font-size: 12px; color: var(--text-dim); }
 
   /* Panels */
   .panel {
@@ -135,369 +90,247 @@
   }
 
   .panel-title {
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 1.5px;
-    color: var(--text-muted);
-    text-transform: uppercase;
+    font-size: 10px; font-weight: 600; letter-spacing: 1.5px;
+    color: var(--text-muted); text-transform: uppercase;
     padding: 20px 20px 12px;
   }
 
-  /* Left: City Dashboard */
+  /* ================================================================
+     LEFT: Dynamic Widget Dashboard
+     ================================================================ */
   .dashboard { padding-bottom: 20px; }
 
-  .dash-section {
-    padding: 0 20px;
-    margin-bottom: 16px;
+  .widget-container { padding: 0 16px; }
+
+  .widget-empty {
+    text-align: center; padding: 48px 20px;
+    color: var(--text-muted); font-size: 12px; line-height: 1.8;
+  }
+  .widget-empty-icon {
+    width: 48px; height: 48px; border-radius: 14px; margin: 0 auto 12px;
+    background: var(--surface-2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; color: var(--text-muted); font-weight: 300;
   }
 
-  .dash-card {
+  /* Individual widget card */
+  .widget {
     background: var(--surface-2);
     border-radius: var(--radius);
-    padding: 14px 16px;
-    margin-bottom: 8px;
-    transition: box-shadow 0.3s, border-color 0.3s;
+    margin-bottom: 10px;
     border: 1px solid transparent;
-  }
-  .dash-card.pulse {
-    border-color: var(--accent);
-    box-shadow: 0 0 12px var(--accent-glow), inset 0 0 8px rgba(74, 158, 255, 0.05);
-    animation: card-pulse 1.5s ease-out;
-  }
-  .dash-card.pulse-alert {
-    border-color: var(--red);
-    box-shadow: 0 0 12px rgba(248, 113, 113, 0.2), inset 0 0 8px rgba(248, 113, 113, 0.05);
-    animation: card-pulse-alert 1.5s ease-out;
-  }
-  @keyframes card-pulse {
-    0% { border-color: var(--accent); box-shadow: 0 0 20px rgba(74, 158, 255, 0.3); }
-    100% { border-color: transparent; box-shadow: none; }
-  }
-  @keyframes card-pulse-alert {
-    0% { border-color: var(--red); box-shadow: 0 0 20px rgba(248, 113, 113, 0.3); }
-    100% { border-color: transparent; box-shadow: none; }
-  }
-
-  .dash-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-  }
-
-  .dash-card-title {
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--text-dim);
-  }
-
-  .dash-badge {
-    font-size: 10px;
-    font-weight: 500;
-    padding: 2px 8px;
-    border-radius: 100px;
-    background: rgba(52, 211, 153, 0.12);
-    color: var(--green);
-  }
-  .dash-badge.warning {
-    background: rgba(251, 191, 36, 0.12);
-    color: var(--amber);
-  }
-  .dash-badge.alert {
-    background: rgba(248, 113, 113, 0.12);
-    color: var(--red);
-  }
-
-  .dash-value {
-    font-size: 22px;
-    font-weight: 300;
-    color: var(--text);
-    line-height: 1;
-  }
-
-  .dash-unit {
-    font-size: 12px;
-    color: var(--text-dim);
-    font-weight: 400;
-  }
-
-  .dash-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    padding: 4px 0;
-  }
-
-  .dash-label {
-    font-size: 11px;
-    color: var(--text-dim);
-  }
-
-  .dash-detail {
-    font-size: 11px;
-    color: var(--text);
-    font-weight: 500;
-  }
-
-  .bar-track {
-    height: 3px;
-    background: rgba(255,255,255,0.05);
-    border-radius: 2px;
-    margin-top: 6px;
     overflow: hidden;
+    transition: border-color 0.4s, box-shadow 0.4s;
   }
 
-  .bar-fill {
-    height: 100%;
-    border-radius: 2px;
-    background: var(--accent);
-    transition: width 0.6s ease;
+  .widget.pulse-in {
+    animation: widgetPulse 2.5s ease-out;
   }
-  .bar-fill.warning { background: var(--amber); }
-  .bar-fill.alert { background: var(--red); }
+  .widget.pulse-in-alert {
+    animation: widgetPulseAlert 2.5s ease-out;
+  }
+  @keyframes widgetPulse {
+    0% { border-color: var(--accent); box-shadow: 0 0 20px rgba(74,158,255,0.3); }
+    100% { border-color: transparent; box-shadow: none; }
+  }
+  @keyframes widgetPulseAlert {
+    0% { border-color: var(--red); box-shadow: 0 0 20px rgba(248,113,113,0.3); }
+    100% { border-color: transparent; box-shadow: none; }
+  }
 
-  /* Center: Conversation */
+  .widget-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 14px 8px;
+  }
+
+  .widget-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent); flex-shrink: 0;
+  }
+  .widget-dot.amber { background: var(--amber); }
+  .widget-dot.red { background: var(--red); }
+  .widget-dot.green { background: var(--green); }
+
+  .widget-title {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.5px;
+    color: var(--text); text-transform: uppercase;
+  }
+
+  .widget-body { padding: 0 14px 12px; }
+
+  .widget-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 3px 0; gap: 12px;
+  }
+
+  .widget-label {
+    font-size: 11px; color: var(--text-dim);
+    white-space: nowrap; flex-shrink: 0;
+  }
+
+  .widget-value {
+    font-size: 11px; font-weight: 500; color: var(--text);
+    text-align: right; word-break: break-word;
+    font-family: 'JetBrains Mono', monospace;
+    transition: color 0.3s;
+  }
+
+  /* Value flash when widget updates */
+  .widget-value.flash {
+    animation: valFlash 2s ease;
+  }
+  @keyframes valFlash {
+    0% { color: var(--accent); text-shadow: 0 0 8px rgba(74,158,255,0.4); }
+    100% { color: var(--text); text-shadow: none; }
+  }
+  .widget-value.flash-alert {
+    animation: valFlashAlert 2s ease;
+  }
+  @keyframes valFlashAlert {
+    0% { color: var(--red); text-shadow: 0 0 8px rgba(248,113,113,0.4); }
+    100% { color: var(--text); text-shadow: none; }
+  }
+
+  .widget-divider {
+    height: 1px; background: var(--border); margin: 4px 0;
+  }
+
+  /* ================================================================
+     CENTER: Transcript
+     ================================================================ */
   .conversation {
-    display: flex;
-    flex-direction: column;
-    background: var(--bg);
-    min-height: 0;
+    display: flex; flex-direction: column;
+    background: var(--bg); min-height: 0; position: relative;
   }
 
   .messages {
-    flex: 1;
-    overflow-y: auto;
-    min-height: 0;
-    padding: 24px 32px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    scrollbar-width: thin;
-    scrollbar-color: var(--surface-2) transparent;
+    flex: 1; overflow-y: auto; min-height: 0;
+    padding: 16px 20px;
+    display: flex; flex-direction: column; gap: 8px;
+    scrollbar-width: thin; scrollbar-color: var(--surface-2) transparent;
   }
 
   .msg {
-    max-width: 85%;
-    padding: 12px 16px;
-    border-radius: 16px;
-    font-size: 14px;
-    line-height: 1.5;
+    max-width: 95%; padding: 8px 12px;
+    border-radius: 12px; font-size: 13px; line-height: 1.5;
     animation: fadeIn 0.2s ease;
   }
-
   @keyframes fadeIn {
     from { opacity: 0; transform: translateY(4px); }
     to { opacity: 1; transform: translateY(0); }
   }
 
   .msg.user {
-    align-self: flex-end;
-    background: var(--surface-2);
-    color: var(--text);
-    border-bottom-right-radius: 4px;
+    align-self: flex-end; background: var(--surface-2);
+    color: var(--text); border-bottom-right-radius: 4px;
   }
-
   .msg.assistant {
-    align-self: flex-start;
-    background: var(--accent-glow);
-    color: var(--text);
-    border-bottom-left-radius: 4px;
-    border: 1px solid rgba(74, 158, 255, 0.1);
+    align-self: flex-start; background: var(--accent-glow);
+    color: var(--text); border-bottom-left-radius: 4px;
+    border: 1px solid rgba(74,158,255,0.1);
   }
 
   .msg-label {
-    font-size: 10px;
-    color: var(--text-muted);
-    margin-bottom: 4px;
-    font-weight: 500;
-    letter-spacing: 0.5px;
+    font-size: 9px; color: var(--text-muted); margin-bottom: 2px;
+    font-weight: 500; letter-spacing: 0.5px;
   }
 
   .welcome-state {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 16px;
-    opacity: 0.6;
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 12px; opacity: 0.6;
   }
-
   .welcome-icon {
-    width: 64px;
-    height: 64px;
-    border-radius: 20px;
+    width: 48px; height: 48px; border-radius: 16px;
     background: linear-gradient(135deg, var(--accent), #7c3aed);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 24px;
-    color: white;
-    font-weight: 300;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; color: white; font-weight: 300;
   }
-
   .welcome-text {
-    font-size: 14px;
-    color: var(--text-dim);
-    text-align: center;
-    line-height: 1.6;
+    font-size: 12px; color: var(--text-dim); text-align: center; line-height: 1.6;
   }
 
   /* Controls */
   .controls {
-    padding: 16px 32px 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 16px;
+    padding: 10px 20px 16px;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
   }
 
   .btn {
-    height: 44px;
-    padding: 0 24px;
-    border: none;
-    border-radius: 22px;
-    font-family: inherit;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    height: 36px; padding: 0 18px; border: none; border-radius: 18px;
+    font-family: inherit; font-size: 12px; font-weight: 500;
+    cursor: pointer; transition: all 0.2s;
+    display: flex; align-items: center; gap: 6px;
   }
-
-  .btn-primary {
-    background: var(--accent);
-    color: white;
-  }
+  .btn-primary { background: var(--accent); color: white; }
   .btn-primary:hover { background: #3a8eef; }
-  .btn-primary:disabled {
-    background: var(--surface-2);
-    color: var(--text-muted);
-    cursor: not-allowed;
-  }
+  .btn-stop { background: rgba(248,113,113,0.12); color: var(--red); }
+  .btn-stop:hover { background: rgba(248,113,113,0.2); }
 
-  .btn-ghost {
-    background: var(--surface-2);
-    color: var(--text-dim);
-  }
-  .btn-ghost:hover { color: var(--text); background: var(--border); }
-
-  .btn-stop {
-    background: rgba(248, 113, 113, 0.12);
-    color: var(--red);
-  }
-  .btn-stop:hover { background: rgba(248, 113, 113, 0.2); }
-
-  /* Visualizer */
   .visualizer {
-    width: 120px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
+    width: 80px; height: 24px;
+    display: flex; align-items: center; justify-content: center; gap: 2px;
   }
-
   .viz-bar {
-    width: 3px;
-    height: 4px;
-    background: var(--accent);
-    border-radius: 2px;
-    transition: height 0.1s ease;
-    opacity: 0.4;
+    width: 2px; height: 4px; background: var(--accent);
+    border-radius: 2px; transition: height 0.1s ease; opacity: 0.4;
   }
   .viz-bar.active { opacity: 1; }
 
-  /* Right: Activity Feed */
+  /* Toast notifications */
+  .toast-container {
+    position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%);
+    display: flex; flex-direction: column-reverse; gap: 6px;
+    z-index: 50; pointer-events: none; width: 90%; max-width: 320px;
+  }
+  .toast {
+    background: var(--surface); border: 1px solid var(--border);
+    border-left: 3px solid var(--accent); border-radius: 8px;
+    padding: 8px 12px; display: flex; align-items: center; gap: 8px;
+    animation: toastIn 0.3s ease; pointer-events: auto; backdrop-filter: blur(12px);
+  }
+  .toast.toast-amber { border-left-color: var(--amber); }
+  .toast.toast-red { border-left-color: var(--red); }
+  .toast.toast-green { border-left-color: var(--green); }
+  .toast.removing { animation: toastOut 0.3s ease forwards; }
+
+  @keyframes toastIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0); } }
+  @keyframes toastOut { from { opacity:1; } to { opacity:0; transform: translateY(-8px); } }
+
+  .toast-indicator {
+    width: 5px; height: 5px; border-radius: 50%; background: var(--accent); flex-shrink: 0;
+  }
+  .toast-amber .toast-indicator { background: var(--amber); }
+  .toast-red .toast-indicator { background: var(--red); }
+  .toast-green .toast-indicator { background: var(--green); }
+
+  .toast-body { flex: 1; min-width: 0; }
+  .toast-title { font-size: 10px; font-weight: 500; color: var(--text); }
+  .toast-detail { font-size: 9px; color: var(--text-dim); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* ================================================================
+     RIGHT: Scenarios + Activity
+     ================================================================ */
   .activity { padding-bottom: 20px; }
 
   .action-item {
-    padding: 10px 20px;
-    border-bottom: 1px solid var(--border);
+    padding: 8px 16px; border-bottom: 1px solid var(--border);
     animation: fadeIn 0.3s ease;
   }
+  .action-time { font-size: 9px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .action-text { font-size: 11px; color: var(--text-dim); margin-top: 2px; line-height: 1.4; }
 
-  .action-time {
-    font-size: 10px;
-    color: var(--text-muted);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .action-text {
-    font-size: 12px;
-    color: var(--text-dim);
-    margin-top: 2px;
-    line-height: 1.4;
-  }
-
-  .scenario-hints {
-    padding: 0 20px;
-  }
-
+  .scenario-hints { padding: 0 16px; }
   .hint {
-    background: var(--surface-2);
-    border-radius: var(--radius);
-    padding: 12px 14px;
-    margin-bottom: 6px;
-    cursor: default;
+    background: var(--surface-2); border-radius: var(--radius);
+    padding: 14px 16px; margin-bottom: 8px; cursor: default;
   }
-
-  .hint-num {
-    font-size: 10px;
-    font-weight: 600;
-    color: var(--accent);
-    margin-bottom: 2px;
-  }
-
-  .hint-title {
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--text);
-    margin-bottom: 2px;
-  }
-
-  .hint-example {
-    font-size: 11px;
-    color: var(--text-muted);
-    font-style: italic;
-  }
-
-  /* SVG Visualization Overlay */
-  .viz-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 100;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(10, 10, 15, 0.85);
-    backdrop-filter: blur(8px);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.4s ease;
-  }
-  .viz-overlay.visible {
-    opacity: 1;
-    pointer-events: auto;
-  }
-  .viz-container {
-    max-width: 560px;
-    width: 80%;
-  }
-  .viz-container svg {
-    width: 100%;
-    height: auto;
-    border-radius: var(--radius);
-  }
+  .hint-num { font-size: 11px; font-weight: 600; color: var(--accent); margin-bottom: 3px; }
+  .hint-title { font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
+  .hint-example { font-size: 13px; color: var(--text-dim); font-style: italic; line-height: 1.4; }
 
   /* Responsive */
   @media (max-width: 1024px) {
-    .app {
-      grid-template-columns: 1fr;
-      grid-template-rows: 56px 1fr;
-    }
+    .app { grid-template-columns: 1fr; grid-template-rows: 56px 1fr; }
     .dashboard, .activity { display: none; }
   }
 </style>
@@ -505,11 +338,6 @@
 <body>
 
 <div class="app">
-  <!-- SVG Visualization Overlay -->
-  <div class="viz-overlay" id="vizOverlay">
-    <div class="viz-container" id="vizContainer"></div>
-  </div>
-
   <!-- Header -->
   <header class="header">
     <div class="logo">
@@ -525,123 +353,44 @@
     </div>
   </header>
 
-  <!-- Left: Dashboard -->
+  <!-- Left: Dynamic Widget Dashboard -->
   <div class="panel dashboard" id="dashboard">
     <div class="panel-title">City Systems</div>
-
-    <div class="dash-section" id="powerSection">
-      <div class="dash-card">
-        <div class="dash-card-header">
-          <span class="dash-card-title">Power Grid</span>
-          <span class="dash-badge" id="gridBadge">Normal</span>
+    <div class="widget-container" id="widgetContainer">
+      <div id="widgetEmpty">
+        <div class="widget-empty">
+          <div class="widget-empty-icon">S</div>
+          Say <strong>"Hey Saga"</strong> to activate.<br>
+          Widgets appear as SAGA processes queries.
         </div>
-        <div class="dash-value" id="gridLoad">612 <span class="dash-unit">/ 850 MW</span></div>
-        <div class="bar-track"><div class="bar-fill" id="gridBar" style="width:72%"></div></div>
-        <div class="dash-row" style="margin-top:8px">
-          <span class="dash-label">Renewable</span>
-          <span class="dash-detail" id="gridRenewable">78%</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="dash-section" id="transitSection">
-      <div class="dash-card">
-        <div class="dash-card-header">
-          <span class="dash-card-title">Transit</span>
-          <span class="dash-badge">On Time</span>
-        </div>
-        <div class="dash-row">
-          <span class="dash-label">Pods available</span>
-          <span class="dash-detail" id="podsAvail">342</span>
-        </div>
-        <div class="dash-row">
-          <span class="dash-label">Avg wait</span>
-          <span class="dash-detail" id="podsWait">2.3 min</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="dash-section" id="weatherSection">
-      <div class="dash-card">
-        <div class="dash-card-header">
-          <span class="dash-card-title">Weather</span>
-          <span class="dash-badge alert" id="weatherBadge" style="display:none">Alert</span>
-        </div>
-        <div class="dash-value" id="weatherTemp">31<span class="dash-unit">&deg;C</span></div>
-        <div class="dash-row">
-          <span class="dash-label" id="weatherCond">Partly Cloudy</span>
-          <span class="dash-detail" id="weatherWind">18 kph</span>
-        </div>
-      </div>
-      <div class="dash-card" id="alertCard" style="display:none; border-left: 2px solid var(--red);">
-        <div class="dash-card-title" style="color: var(--red); margin-bottom:4px">Active Alert</div>
-        <div class="dash-label" id="alertText"></div>
-      </div>
-    </div>
-
-    <div class="dash-section" id="floodSection">
-      <div class="dash-card">
-        <div class="dash-card-header">
-          <span class="dash-card-title">Flood Gates</span>
-          <span class="dash-badge" id="floodBadge">Open</span>
-        </div>
-        <div class="dash-row">
-          <span class="dash-label">Seawall</span>
-          <span class="dash-detail">12 gates</span>
-        </div>
-        <div class="dash-row">
-          <span class="dash-label">Status</span>
-          <span class="dash-detail" id="floodStatus">Open</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="dash-section" id="residentSection">
-      <div class="dash-card">
-        <div class="dash-card-header">
-          <span class="dash-card-title" id="resName">Mr. Donovan</span>
-        </div>
-        <div class="dash-row">
-          <span class="dash-label" id="resUnit">Tower A, Unit 4201</span>
-        </div>
-        <div class="dash-row" style="margin-top:6px">
-          <span class="dash-label">Climate</span>
-          <span class="dash-detail" id="resClimate">24&deg;C</span>
-        </div>
-        <div class="dash-row">
-          <span class="dash-label">Energy credits</span>
-          <span class="dash-detail" id="resCredits">$847.50</span>
-        </div>
-        <div class="dash-row">
-          <span class="dash-label">Payment</span>
-          <span class="dash-detail">Face-ID</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="dash-section" id="emergencySection">
-      <div class="dash-card">
-        <div class="dash-card-header">
-          <span class="dash-card-title">Emergency</span>
-          <span class="dash-badge" id="emergBadge">Nominal</span>
-        </div>
-        <div class="dash-row">
-          <span class="dash-label">Backup power</span>
-          <span class="dash-detail" id="emergPower">100%</span>
-        </div>
-        <div class="dash-row">
-          <span class="dash-label">Data center</span>
-          <span class="dash-detail" id="emergDC">Nominal</span>
-        </div>
-        <div class="dash-row">
-          <span class="dash-label">Alerts sent</span>
-          <span class="dash-detail" id="emergAlerts">0</span>
+        <div class="panel-title" style="padding-left:4px">Try Saying</div>
+        <div class="scenario-hints" style="padding:0">
+          <div class="hint">
+            <div class="hint-num">01</div>
+            <div class="hint-title">Command & Control</div>
+            <div class="hint-example">"Give me a status overlay of the Phase 1 power grid"</div>
+          </div>
+          <div class="hint">
+            <div class="hint-num">02</div>
+            <div class="hint-title">Frictionless Resident</div>
+            <div class="hint-example">"Book a pod, order my coffee, and cool my office to 22"</div>
+          </div>
+          <div class="hint">
+            <div class="hint-num">03</div>
+            <div class="hint-title">Smart Work</div>
+            <div class="hint-example">"Analyze last month's Smart Grid revenue"</div>
+          </div>
+          <div class="hint">
+            <div class="hint-num">04</div>
+            <div class="hint-title">Proactive Guardian</div>
+            <div class="hint-example">"What's the weather alert status?"</div>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Center: Conversation -->
+  <!-- Center: Transcript -->
   <div class="conversation">
     <div class="messages" id="messages">
       <div class="welcome-state" id="welcome">
@@ -652,47 +401,22 @@
         </div>
       </div>
     </div>
+    <div class="toast-container" id="toastContainer"></div>
     <div class="controls">
       <div class="visualizer" id="visualizer">
         <div class="viz-bar"></div><div class="viz-bar"></div><div class="viz-bar"></div>
         <div class="viz-bar"></div><div class="viz-bar"></div><div class="viz-bar"></div>
         <div class="viz-bar"></div><div class="viz-bar"></div><div class="viz-bar"></div>
         <div class="viz-bar"></div><div class="viz-bar"></div><div class="viz-bar"></div>
-        <div class="viz-bar"></div><div class="viz-bar"></div><div class="viz-bar"></div>
-        <div class="viz-bar"></div>
       </div>
-      <button class="btn btn-primary" id="startBtn" onclick="startSession()">Start Session</button>
+      <button class="btn btn-primary" id="startBtn" onclick="startSession()">Start</button>
       <button class="btn btn-stop" id="stopBtn" onclick="stopSession()" style="display:none">Stop</button>
     </div>
   </div>
 
-  <!-- Right: Activity + Scenarios -->
+  <!-- Right: Activity Log -->
   <div class="panel activity">
-    <div class="panel-title">Scenarios</div>
-    <div class="scenario-hints">
-      <div class="hint">
-        <div class="hint-num">01</div>
-        <div class="hint-title">Command & Control</div>
-        <div class="hint-example">"Give me a status overlay of the Phase 1 power grid"</div>
-      </div>
-      <div class="hint">
-        <div class="hint-num">02</div>
-        <div class="hint-title">Frictionless Resident</div>
-        <div class="hint-example">"Book a pod, order my coffee, and cool my office to 22"</div>
-      </div>
-      <div class="hint">
-        <div class="hint-num">03</div>
-        <div class="hint-title">Smart Work</div>
-        <div class="hint-example">"Analyze last month's Smart Grid revenue"</div>
-      </div>
-      <div class="hint">
-        <div class="hint-num">04</div>
-        <div class="hint-title">Proactive Guardian</div>
-        <div class="hint-example">"What's the weather alert status?"</div>
-      </div>
-    </div>
-
-    <div class="panel-title" style="margin-top:8px">Activity</div>
+    <div class="panel-title">Activity</div>
     <div id="activityFeed"></div>
   </div>
 </div>
@@ -709,7 +433,6 @@ let scriptProcessor = null;
 let nextPlayTime = 0;
 let isRunning = false;
 let hotwordState = 'listening';
-let vizShownThisConversation = false;
 
 // ---------------------------------------------------------------------------
 // Audio helpers
@@ -733,7 +456,6 @@ function resampleToInt16_16k(float32, inputRate) {
 // Session control
 // ---------------------------------------------------------------------------
 async function startSession() {
-  console.log('[SAGA] startSession called, socket connected:', socket.connected);
   document.getElementById('welcome').style.display = 'none';
   document.getElementById('startBtn').style.display = 'none';
   document.getElementById('stopBtn').style.display = '';
@@ -743,7 +465,6 @@ async function startSession() {
       audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1, sampleRate: { ideal: 16000 } }
     });
     micStream = stream;
-
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const source = audioCtx.createMediaStreamSource(stream);
     scriptProcessor = audioCtx.createScriptProcessor(1024, 1, 1);
@@ -757,8 +478,6 @@ async function startSession() {
 
     source.connect(scriptProcessor);
     scriptProcessor.connect(audioCtx.destination);
-
-    console.log('[SAGA] emitting start_voice_agent');
     socket.emit('start_voice_agent', { browserAudio: true });
     isRunning = true;
     hotwordState = 'listening';
@@ -774,43 +493,46 @@ async function startSession() {
 function stopSession() {
   isRunning = false;
   socket.emit('stop_voice_agent');
-
   if (scriptProcessor) { scriptProcessor.disconnect(); scriptProcessor = null; }
   if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
   if (audioCtx) { audioCtx.close(); audioCtx = null; }
   nextPlayTime = 0;
-
   document.getElementById('startBtn').style.display = '';
   document.getElementById('stopBtn').style.display = 'none';
   setStatus('offline');
 }
 
 // ---------------------------------------------------------------------------
-// Audio playback
+// Audio playback (with interruption support)
 // ---------------------------------------------------------------------------
+let activeSources = [];
+
 socket.on('audio_output', (data) => {
   if (!audioCtx || !isRunning) return;
   const int16 = new Int16Array(data.audio);
   const float32 = new Float32Array(int16.length);
   for (let i = 0; i < int16.length; i++) float32[i] = int16[i] / 32768;
-
   const buffer = audioCtx.createBuffer(1, float32.length, data.sampleRate || 16000);
   buffer.getChannelData(0).set(float32);
-
   const src = audioCtx.createBufferSource();
   src.buffer = buffer;
   src.connect(audioCtx.destination);
-
   const now = audioCtx.currentTime;
   if (nextPlayTime < now) nextPlayTime = now;
   src.start(nextPlayTime);
   nextPlayTime += buffer.duration;
+  activeSources.push(src);
+  src.onended = () => { activeSources = activeSources.filter(s => s !== src); };
 });
 
-socket.on('stop_audio_output', () => { nextPlayTime = 0; });
+socket.on('stop_audio_output', () => {
+  activeSources.forEach(s => { try { s.stop(); } catch(e) {} });
+  activeSources = [];
+  nextPlayTime = 0;
+});
 
 // ---------------------------------------------------------------------------
-// Conversation
+// Conversation transcript
 // ---------------------------------------------------------------------------
 socket.on('conversation_update', (msg) => {
   const container = document.getElementById('messages');
@@ -829,234 +551,279 @@ socket.on('conversation_update', (msg) => {
   container.appendChild(div);
   container.scrollTop = container.scrollHeight;
 
-  // Update visualizer based on hotword state
   if (msg.role === 'assistant') setStatus('speaking');
   else if (hotwordState === 'active') setStatus('listening');
   else setStatus('ambient');
 });
 
 // ---------------------------------------------------------------------------
-// City state updates
+// Hotword + agent state
 // ---------------------------------------------------------------------------
-socket.on('city_state_update', (state) => { renderDashboard(state); });
-
-// Hotword state: ambient (waiting for hotword) vs active (in conversation)
 socket.on('hotword_state', (data) => {
   hotwordState = data.state;
-  if (data.state === 'active') {
-    setStatus('listening');
-  } else {
-    setStatus('ambient');
-    vizShownThisConversation = false; // reset for next conversation
-  }
+  setStatus(data.state === 'active' ? 'listening' : 'ambient');
 });
 
-// Agent ready (Deepgram session established) -> go to ambient
-socket.on('agent_ready', () => {
-  setStatus('ambient');
+socket.on('agent_ready', () => { setStatus('ambient'); });
+
+socket.on('session_timeout', () => {
+  showToast({ title: 'Session idle', detail: 'Say "Hey Saga" to continue', color: 'amber' });
 });
 
-// Also poll on load
-let prevState = null;
-fetch('/api/city-state').then(r => r.json()).then(s => { prevState = s; renderDashboard(s); });
-
-function pulseCard(sectionId, alertStyle) {
-  const cards = document.querySelectorAll(`#${sectionId} .dash-card`);
-  cards.forEach(c => {
-    c.classList.remove('pulse', 'pulse-alert');
-    void c.offsetWidth; // force reflow
-    c.classList.add(alertStyle ? 'pulse-alert' : 'pulse');
-  });
-}
-
-function renderDashboard(s) {
-  const changed = prevState ? detectChanges(prevState, s) : new Set();
-
-  // Power
-  const grid = s.power_grid;
-  const pct = Math.round(grid.current_load_mw / grid.total_capacity_mw * 100);
-  document.getElementById('gridLoad').innerHTML = `${grid.current_load_mw} <span class="dash-unit">/ ${grid.total_capacity_mw} MW</span>`;
-  document.getElementById('gridBar').style.width = pct + '%';
-  document.getElementById('gridRenewable').textContent = grid.renewable_pct + '%';
-
-  const hasSpike = Object.values(grid.zones).some(z => z.status === 'elevated');
-  const badge = document.getElementById('gridBadge');
-  if (hasSpike) { badge.textContent = 'Elevated'; badge.className = 'dash-badge warning'; }
-  else { badge.textContent = 'Normal'; badge.className = 'dash-badge'; }
-  if (changed.has('power')) pulseCard('powerSection');
-
-  // Transit
-  document.getElementById('podsAvail').textContent = s.transit.autonomous_pods.available;
-  document.getElementById('podsWait').textContent = s.transit.autonomous_pods.avg_wait_min + ' min';
-  if (changed.has('transit')) pulseCard('transitSection');
-
-  // Weather
-  document.getElementById('weatherTemp').innerHTML = `${s.weather.current.temp_c}<span class="dash-unit">&deg;C</span>`;
-  document.getElementById('weatherCond').textContent = s.weather.current.condition;
-  document.getElementById('weatherWind').textContent = s.weather.current.wind_kph + ' kph';
-
-  const alertCard = document.getElementById('alertCard');
-  const weatherBadge = document.getElementById('weatherBadge');
-  if (s.weather.alerts && s.weather.alerts.length > 0) {
-    const a = s.weather.alerts[0];
-    alertCard.style.display = '';
-    weatherBadge.style.display = '';
-    document.getElementById('alertText').textContent = `${a.type}: ${a.surge_meters}m surge, ${a.location}, ETA ${a.predicted_time}`;
-  } else {
-    alertCard.style.display = 'none';
-    weatherBadge.style.display = 'none';
-  }
-  if (changed.has('weather')) pulseCard('weatherSection', true);
-
-  // Flood gates
-  const fb = document.getElementById('floodBadge');
-  const fs = document.getElementById('floodStatus');
-  if (s.flood_gates.status === 'scheduled') {
-    fb.textContent = 'Scheduled'; fb.className = 'dash-badge warning';
-    fs.textContent = 'Close at ' + s.flood_gates.scheduled_close;
-  } else {
-    fb.textContent = 'Open'; fb.className = 'dash-badge';
-    fs.textContent = 'Open';
-  }
-  if (changed.has('flood')) pulseCard('floodSection', true);
-
-  // Resident
-  document.getElementById('resName').textContent = s.resident.name;
-  document.getElementById('resUnit').textContent = s.resident.unit;
-  document.getElementById('resClimate').innerHTML = `${s.resident.climate.target_temp_c}&deg;C`;
-  document.getElementById('resCredits').textContent = `$${s.resident.energy_credits.toFixed(2)}`;
-  if (changed.has('resident')) pulseCard('residentSection');
-
-  // Emergency
-  const emerg = s.emergency;
-  document.getElementById('emergPower').textContent = emerg.backup_power_pct + '%';
-  document.getElementById('emergDC').textContent = emerg.data_center_status;
-  document.getElementById('emergAlerts').textContent = emerg.resident_alert_count.toLocaleString();
-  const eb = document.getElementById('emergBadge');
-  if (emerg.resident_alert_count > 0) {
-    eb.textContent = 'Active'; eb.className = 'dash-badge alert';
-  } else {
-    eb.textContent = 'Nominal'; eb.className = 'dash-badge';
-  }
-  if (changed.has('emergency')) pulseCard('emergencySection', true);
-
-  // Activity feed
+// ---------------------------------------------------------------------------
+// Activity feed (from city_state_update)
+// ---------------------------------------------------------------------------
+socket.on('city_state_update', (state) => {
   const feed = document.getElementById('activityFeed');
   feed.innerHTML = '';
-  (s.recent_actions || []).forEach(a => {
+  (state.recent_actions || []).forEach(a => {
     const item = document.createElement('div');
     item.className = 'action-item';
     item.innerHTML = `<div class="action-time">${a.time}</div><div class="action-text">${a.action}</div>`;
     feed.appendChild(item);
   });
+});
 
-  prevState = JSON.parse(JSON.stringify(s));
+// =====================================================================
+// DYNAMIC WIDGET SYSTEM
+// =====================================================================
+
+// Widget title overrides (fallback: auto-humanize function name)
+const WIDGET_TITLES = {
+  get_weather_alert: 'Weather Alert',
+  activate_flood_gates: 'Flood Gates',
+  book_pod: 'Transit Pod',
+  order_coffee: 'Coffee Order',
+  set_climate: 'Climate Control',
+  check_energy_credits: 'Energy Credits',
+  get_grid_status: 'Power Grid',
+  analyze_energy_spike: 'Energy Spike',
+  get_zone_overview: 'Zone Overview',
+  check_backup_power: 'Backup Power',
+  send_mass_alert: 'Mass Alert',
+  book_emergency_accommodation: 'Emergency Housing',
+  analyze_revenue: 'Revenue Analysis',
+  create_projection: 'Financial Projection',
+  generate_deck: 'Presentation',
+  send_notification: 'Notification',
+};
+
+// Color accent per function
+const WIDGET_COLORS = {
+  get_weather_alert: 'red',
+  activate_flood_gates: 'amber',
+  send_mass_alert: 'red',
+  check_backup_power: 'green',
+  book_emergency_accommodation: 'red',
+  analyze_energy_spike: 'amber',
+};
+
+const ALERT_FUNCTIONS = new Set(Object.keys(WIDGET_COLORS));
+
+// Keys to skip in widget rendering (internal/redundant)
+const SKIP_KEYS = new Set(['id', 'alert_type']);
+
+// Humanize a snake_case key: "close_time" -> "Close Time"
+function humanizeKey(key) {
+  return key.replace(/_/g, ' ').replace(/\b[a-z]/g, c => c.toUpperCase());
 }
 
-function detectChanges(prev, next) {
-  const changed = new Set();
-  if (JSON.stringify(prev.power_grid) !== JSON.stringify(next.power_grid)) changed.add('power');
-  if (JSON.stringify(prev.transit) !== JSON.stringify(next.transit)) changed.add('transit');
-  if (JSON.stringify(prev.weather) !== JSON.stringify(next.weather)) changed.add('weather');
-  if (JSON.stringify(prev.flood_gates) !== JSON.stringify(next.flood_gates)) changed.add('flood');
-  if (JSON.stringify(prev.resident) !== JSON.stringify(next.resident)) changed.add('resident');
-  if (JSON.stringify(prev.emergency) !== JSON.stringify(next.emergency)) changed.add('emergency');
-  return changed;
+// Auto-generate widget title from function name
+function getWidgetTitle(fnName) {
+  if (WIDGET_TITLES[fnName]) return WIDGET_TITLES[fnName];
+  return fnName
+    .replace(/^(get_|check_|analyze_|book_|order_|set_|send_|create_|activate_|generate_)/, '')
+    .replace(/_/g, ' ')
+    .replace(/\b[a-z]/g, c => c.toUpperCase());
+}
+
+// Format a value for display
+function formatValue(key, val, data) {
+  // Use formatted_ version if available
+  const fmtKey = 'formatted_' + key;
+  if (data && data[fmtKey]) return data[fmtKey];
+  if (typeof val === 'boolean') return val ? 'Yes' : 'No';
+  if (typeof val === 'number') {
+    if (val >= 10000) return val.toLocaleString();
+    return String(val);
+  }
+  return String(val);
+}
+
+// Render key-value rows from a data object, flattening nested structures
+function renderRows(data, depth) {
+  if (depth === undefined) depth = 0;
+  if (depth > 2) return '';
+  let html = '';
+
+  for (const [key, val] of Object.entries(data)) {
+    if (SKIP_KEYS.has(key)) continue;
+    // Skip formatted_ keys (used as display for their base key)
+    if (key.startsWith('formatted_')) continue;
+
+    if (Array.isArray(val)) {
+      // Render each array item (e.g., weather alerts)
+      val.forEach((item, i) => {
+        if (typeof item === 'object' && item !== null) {
+          if (i > 0) html += '<div class="widget-divider"></div>';
+          html += renderRows(item, depth + 1);
+        } else {
+          html += rowHtml(humanizeKey(key), formatValue(key, item, null));
+        }
+      });
+    } else if (typeof val === 'object' && val !== null) {
+      html += renderRows(val, depth + 1);
+    } else {
+      html += rowHtml(humanizeKey(key), formatValue(key, val, data));
+    }
+  }
+  return html;
+}
+
+function rowHtml(label, value) {
+  return `<div class="widget-row"><span class="widget-label">${label}</span><span class="widget-value">${value}</span></div>`;
+}
+
+// Active widgets by ID (function name or custom title)
+const activeWidgets = {};
+
+function createOrUpdateWidget(widgetId, result, title, color, isAlert) {
+  // Hide empty state
+  const empty = document.getElementById('widgetEmpty');
+  if (empty) empty.style.display = 'none';
+
+  const container = document.getElementById('widgetContainer');
+  const rowsHtml = renderRows(result);
+
+  let widget = activeWidgets[widgetId];
+
+  if (widget) {
+    // Update existing widget: flash changed values
+    const oldBody = widget.querySelector('.widget-body');
+    const oldValues = {};
+    oldBody.querySelectorAll('.widget-row').forEach(row => {
+      const lbl = row.querySelector('.widget-label')?.textContent;
+      const val = row.querySelector('.widget-value')?.textContent;
+      if (lbl) oldValues[lbl] = val;
+    });
+
+    oldBody.innerHTML = rowsHtml;
+
+    // Flash values that changed
+    oldBody.querySelectorAll('.widget-row').forEach(row => {
+      const lbl = row.querySelector('.widget-label')?.textContent;
+      const valEl = row.querySelector('.widget-value');
+      if (lbl && valEl && oldValues[lbl] !== undefined && oldValues[lbl] !== valEl.textContent) {
+        valEl.classList.add(isAlert ? 'flash-alert' : 'flash');
+      }
+    });
+
+    // Re-pulse the card
+    widget.classList.remove('pulse-in', 'pulse-in-alert');
+    void widget.offsetWidth;
+    widget.classList.add(isAlert ? 'pulse-in-alert' : 'pulse-in');
+  } else {
+    // Create new widget
+    widget = document.createElement('div');
+    widget.className = `widget ${isAlert ? 'pulse-in-alert' : 'pulse-in'}`;
+    widget.innerHTML = `
+      <div class="widget-header">
+        <div class="widget-dot ${color}"></div>
+        <div class="widget-title">${title}</div>
+      </div>
+      <div class="widget-body">${rowsHtml}</div>
+    `;
+    // Insert at top
+    container.insertBefore(widget, container.firstChild);
+    activeWidgets[widgetId] = widget;
+  }
 }
 
 // ---------------------------------------------------------------------------
-// Status indicator
+// function_executed: widgets + toasts
+// ---------------------------------------------------------------------------
+
+const FUNCTION_TOAST = {
+  book_pod: (r) => ({ title: 'Pod Dispatched', detail: `#${r.pod_number} to ${r.destination}`, color: 'accent' }),
+  order_coffee: (r) => ({ title: 'Coffee Ordered', detail: `${r.drink} via ${r.payment_method}`, color: 'accent' }),
+  set_climate: (r) => ({ title: 'Climate Set', detail: `${r.location} to ${r.target_temp_c}C`, color: 'accent' }),
+  get_weather_alert: (r) => {
+    if (r.alert_count > 0) return { title: 'Weather Alert', detail: `${r.alerts[0].type}: ${r.alerts[0].surge_meters}m`, color: 'red' };
+    return { title: 'Weather Clear', detail: 'No active alerts', color: 'green' };
+  },
+  activate_flood_gates: (r) => ({ title: 'Flood Gates', detail: `${r.gates_affected} gates at ${r.close_time}`, color: 'amber' }),
+  send_mass_alert: (r) => ({ title: 'Alert Sent', detail: `${r.formatted_recipients} notified`, color: 'red' }),
+  check_backup_power: (r) => ({ title: 'Backup Power', detail: `${r.facility}: ${r.backup_power_pct}%`, color: 'green' }),
+  get_grid_status: (r) => {
+    if (r.zones) return { title: 'Grid Status', detail: `${r.current_load_mw}/${r.total_capacity_mw} MW`, color: 'accent' };
+    return { title: 'Zone', detail: `${r.zone}: ${r.utilization_pct}%`, color: 'accent' };
+  },
+  analyze_energy_spike: (r) => ({ title: 'Spike', detail: `${r.zone}: ${r.status}`, color: 'amber' }),
+  analyze_revenue: (r) => ({ title: 'Revenue', detail: `${r.source}: ${r.formatted}`, color: 'accent' }),
+  create_projection: (r) => ({ title: 'Projection', detail: `${r.projection_years}yr: ${r.formatted}`, color: 'accent' }),
+};
+
+socket.on('function_executed', (data) => {
+  if (data.result && data.result.error) return;
+
+  // Resolve widget identity: update_dashboard provides overrides, others use defaults
+  const widgetId = data.widget_id || data.name;
+  const widgetTitle = data.widget_title || getWidgetTitle(data.name);
+  const widgetColor = data.widget_color || WIDGET_COLORS[data.name] || 'accent';
+  const isAlert = ALERT_FUNCTIONS.has(data.name) || widgetColor === 'red';
+
+  createOrUpdateWidget(widgetId, data.result, widgetTitle, widgetColor, isAlert);
+
+  // Show toast
+  if (data.name === 'update_dashboard') {
+    showToast({ title: widgetTitle, detail: 'Widget updated', color: widgetColor });
+  } else {
+    const toastFn = FUNCTION_TOAST[data.name];
+    if (toastFn) showToast(toastFn(data.result));
+  }
+});
+
+function showToast({ title, detail, color }) {
+  const container = document.getElementById('toastContainer');
+  const el = document.createElement('div');
+  el.className = `toast toast-${color || 'accent'}`;
+  el.innerHTML = `
+    <div class="toast-indicator"></div>
+    <div class="toast-body">
+      <div class="toast-title">${title}</div>
+      <div class="toast-detail">${detail}</div>
+    </div>
+  `;
+  container.appendChild(el);
+  setTimeout(() => { el.classList.add('removing'); setTimeout(() => el.remove(), 300); }, 4000);
+  while (container.children.length > 4) container.firstChild.remove();
+}
+
+// ---------------------------------------------------------------------------
+// Status indicator + visualizer
 // ---------------------------------------------------------------------------
 function setStatus(state) {
   const dot = document.getElementById('statusDot');
   const label = document.getElementById('statusLabel');
   dot.className = 'status-dot';
-
-  if (state === 'ambient') {
-    dot.classList.add('ambient');
-    label.textContent = 'Ambient';
-    animateViz(false);
-  } else if (state === 'listening') {
-    dot.classList.add('listening');
-    label.textContent = 'Active';
-    animateViz(true);
-  } else if (state === 'speaking') {
-    dot.classList.add('active');
-    label.textContent = 'Speaking';
-    animateViz(true);
-  } else {
-    label.textContent = 'Offline';
-    animateViz(false);
-  }
+  if (state === 'ambient') { dot.classList.add('ambient'); label.textContent = 'Ambient'; animateViz(false); }
+  else if (state === 'listening') { dot.classList.add('listening'); label.textContent = 'Active'; animateViz(true); }
+  else if (state === 'speaking') { dot.classList.add('active'); label.textContent = 'Speaking'; animateViz(true); }
+  else { label.textContent = 'Offline'; animateViz(false); }
 }
 
-// ---------------------------------------------------------------------------
-// Visualizer animation
-// ---------------------------------------------------------------------------
 let vizInterval = null;
 function animateViz(on) {
   const bars = document.querySelectorAll('.viz-bar');
   if (on && !vizInterval) {
     vizInterval = setInterval(() => {
-      bars.forEach(b => {
-        const h = 4 + Math.random() * 20;
-        b.style.height = h + 'px';
-        b.classList.toggle('active', h > 10);
-      });
+      bars.forEach(b => { const h = 4 + Math.random() * 16; b.style.height = h + 'px'; b.classList.toggle('active', h > 10); });
     }, 100);
   } else if (!on && vizInterval) {
-    clearInterval(vizInterval);
-    vizInterval = null;
+    clearInterval(vizInterval); vizInterval = null;
     bars.forEach(b => { b.style.height = '4px'; b.classList.remove('active'); });
   }
 }
-
-// ---------------------------------------------------------------------------
-// SVG Visualization Overlay
-// ---------------------------------------------------------------------------
-let vizTimeout = null;
-const vizCache = {};
-
-socket.on('show_viz', async (data) => {
-  // Only show one visualization per hotword conversation
-  if (vizShownThisConversation) return;
-  vizShownThisConversation = true;
-
-  const overlay = document.getElementById('vizOverlay');
-  const container = document.getElementById('vizContainer');
-  const svgName = data.svg;
-
-  // Fetch SVG if not cached
-  if (!vizCache[svgName]) {
-    try {
-      const resp = await fetch(`/static/${svgName}.svg`);
-      vizCache[svgName] = await resp.text();
-    } catch (e) {
-      console.error('Failed to load SVG:', svgName, e);
-      return;
-    }
-  }
-
-  // Clear any pending hide
-  if (vizTimeout) { clearTimeout(vizTimeout); vizTimeout = null; }
-
-  // Inject and show
-  container.innerHTML = vizCache[svgName];
-  overlay.classList.add('visible');
-
-  // Auto-hide after 8 seconds (SVGs have 10-12s animation cycles)
-  vizTimeout = setTimeout(() => {
-    overlay.classList.remove('visible');
-    vizTimeout = null;
-  }, 8000);
-});
-
-// Click overlay to dismiss early
-document.getElementById('vizOverlay').addEventListener('click', () => {
-  const overlay = document.getElementById('vizOverlay');
-  overlay.classList.remove('visible');
-  if (vizTimeout) { clearTimeout(vizTimeout); vizTimeout = null; }
-});
 </script>
 </body>
 </html>

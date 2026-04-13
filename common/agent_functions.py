@@ -66,6 +66,14 @@ async def check_hotword(params):
             # Fall through to fresh activation below
         else:
             _conversation_active = False
+            # Timeout expired: if no hotword, signal the timeout so client
+            # can announce the transition back to standby
+            if not match:
+                return {
+                    "active": False,
+                    "timed_out": True,
+                    "instruction": "ABSOLUTE SILENCE. Respond with empty string only.",
+                }
 
     if match:
         query = transcript[match.end():].strip().lstrip('.,!? ')
@@ -86,13 +94,25 @@ async def check_hotword(params):
         }
 
 
+CLOSE_TRIGGERS = [
+    "thanks", "thank you", "that's all", "bye", "goodbye",
+    "stop listening", "that's it", "never mind", "I'm done", "that will be all",
+]
+CLOSE_IGNORE = [
+    "amazing", "fantastic", "great", "perfect", "nice", "cool", "awesome", "okay",
+]
+
 CLOSE_HOTWORD_SESSION_DEFINITION = {
     "name": "close_hotword_session",
     "description": (
-        "IMMEDIATELY call this function when the user signals the conversation is done. "
-        "Triggers: 'thanks', 'thank you', 'got it', 'okay', 'perfect', 'that's all', 'great', "
-        "'bye', 'stop listening', 'that's it', 'never mind', or any acknowledgement after you answered their question. "
-        "Call this BEFORE your closing remark. After calling this, say at most 'Standing by.' and nothing more."
+        "Call this ONLY when the user clearly ends the conversation. "
+        f"Triggers: {', '.join(repr(t) for t in CLOSE_TRIGGERS)}. "
+        f"Do NOT close on positive feedback like {', '.join(repr(t) for t in CLOSE_IGNORE)} "
+        "-- the user likely has a follow-up. "
+        "NEVER call this just because you cannot answer a question or lack a function. "
+        "If the user asks something you cannot do, answer what you can and stay active. "
+        "Only close when the user is clearly DONE, not confused, stuck, or asking follow-ups. "
+        "Call this BEFORE your closing remark. After calling this, say ONLY 'Standing by.' and nothing more."
     ),
     "parameters": {"type": "object", "properties": {}},
 }
