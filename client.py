@@ -151,17 +151,11 @@ class VoiceAgent:
             return False
 
     async def _handle_hotword_activation(self, result):
-        """Handle hotword activation: emit state and inject filler on fresh activation."""
+        """Handle hotword activation: emit state on fresh activation."""
         if not result.get("active"):
             return
         socketio.emit("hotword_state", {"state": "active"})
         if result.get("freshly_activated"):
-            filler = get_random_filler()
-            logger.info(f"Injecting filler: {filler}")
-            await self.ws.send(json.dumps({
-                "type": "InjectAgentMessage",
-                "message": filler,
-            }))
             socketio.emit("show_viz", {"svg": "saga-loading"})
 
     async def sender(self):
