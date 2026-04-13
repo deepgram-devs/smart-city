@@ -1,0 +1,149 @@
+<svg width="400" height="240" viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    /* SAGA UI PALETTE */
+    :root {
+      --cyan: #00d4ff;
+      --solar: #ffeaa7;
+      --tidal: #74b9ff;
+      --alert: #ff4757;
+      --bg: #0a0a0c;
+      --trace: #222;
+    }
+
+    svg {
+      background-color: var(--bg);
+      font-family: 'Courier New', Courier, monospace;
+      text-transform: uppercase;
+    }
+
+    /* Standard Grid Lines */
+    .grid-trace {
+      stroke: var(--trace);
+      stroke-width: 0.5;
+      fill: none;
+    }
+
+    /* Particle Flow Base */
+    .flow-line {
+      fill: none;
+      stroke-width: 1;
+      stroke-linecap: round;
+      stroke-dasharray: 3 6; /* Small gaps for particle effect */
+      animation: grid-flow 2s linear infinite;
+    }
+
+    /* Node Styling */
+    .node-hex {
+      fill: var(--bg);
+      stroke: var(--trace);
+      stroke-width: 0.5;
+      transition: all 0.5s;
+    }
+
+    .node-icon {
+      fill: var(--trace);
+    }
+
+    /* Labels */
+    .node-label {
+      fill: #555;
+      font-size: 3px;
+      text-anchor: middle;
+    }
+
+    .hud-text {
+      fill: var(--cyan);
+      font-size: 4px;
+    }
+
+    /* --- ANIMATION STATES --- */
+
+    /* 1. Primary Flow (Cyan - Nominal) */
+    .cyan-flow {
+      stroke: var(--cyan);
+      opacity: 0.6;
+    }
+
+    /* 2. BPO SPIKE EVENT */
+    #BPO_NODE {
+      animation: bpo-spike 12s infinite;
+    }
+
+    /* 3. ARBITRAGE ACTIVATION (The diversion line) */
+    #SOLAR_TO_BPO {
+      stroke-width: 0; /* Starts off */
+      stroke: var(--cyan);
+      animation: arbitrage-active 12s infinite;
+    }
+
+    /* KEYFRAMES */
+
+    /* Generic Particle Motion */
+    @keyframes grid-flow {
+      to { stroke-dashoffset: -18; }
+    }
+
+    /* BPO Node Reaction to Spike */
+    @keyframes bpo-spike {
+      0%, 30% { stroke: var(--trace); }               /* Normal */
+      33% { stroke: var(--alert); }                   /* Spike Detect */
+      33%, 45% { filter: drop-shadow(0 0 2px var(--alert)); fill: rgba(255,71,87,0.1); } /* Pulsing Alert */
+      46%, 60% { filter: drop-shadow(0 0 1px var(--cyan)); fill: var(--bg); stroke: var(--cyan); } /* Stabilization */
+      100% { stroke: var(--cyan); fill: var(--bg); filter: none;} /* New Normal */
+    }
+
+    /* Arbitrage Flow Diversion */
+    @keyframes arbitrage-active {
+      0%, 40% { stroke-width: 0; opacity: 0; }        /* Off during spike start */
+      45%, 90% { stroke-width: 1.5; opacity: 1; stroke: var(--cyan); filter: drop-shadow(0 0 1px var(--cyan));} /* SAGA redirects power */
+      100% { stroke-width: 1; opacity: 0.6; }        /* New standard operating level */
+    }
+
+  </style>
+
+  <defs>
+    <polygon id="hex" points="10,0 20,5.77 20,17.32 10,23.09 0,17.32 0,5.77" />
+    
+    <pattern id="scanlines" width="200" height="2" patternUnits="userSpaceOnUse">
+      <line x1="0" y1="0" x2="200" y2="0" stroke="#fff" stroke-width="0.3" opacity="0.1"/>
+    </pattern>
+  </defs>
+
+  <text x="5" y="10" class="hud-text">SAGA // GRID_OP // POWER_FLOW</text>
+  <text x="5" y="16" class="hud-text" opacity="0.5">CAPACITY: 850MW</text>
+  
+  <path d="M50,40 L100,20 L150,40 L150,80 L100,100 L50,80 Z" class="grid-trace" /> <path d="M100,20 L100,0 M150,40 L180,30 M150,80 L180,90 M100,100 L100,120 M50,80 L20,90 M50,40 L20,30" class="grid-trace" /> <g id="SOLAR_NODE" transform="translate(10, 18)">
+    <use href="#hex" class="node-hex" style="stroke: var(--solar);" />
+    <path d="M10,7 A3,3 0 1,1 10,13 A3,3 0 1,1 10,7 M10,5 L10,6 M10,14 L10,15 M5,10 L6,10 M14,10 L15,10" fill="var(--solar)" stroke="var(--solar)" stroke-width="0.5" />
+    <text x="10" y="30" class="node-label">CCV</text>
+  </g>
+
+  <g id="TIDAL_NODE" transform="translate(10, 78)">
+    <use href="#hex" class="node-hex" style="stroke: var(--tidal);"/>
+    <path d="M5,10 Q10,5 15,10 M5,14 Q10,9 15,14" fill="none" stroke="var(--tidal)" stroke-width="1" />
+    <text x="10" y="30" class="node-label">BAY</text>
+  </g>
+  
+  <g id="BPO_NODE" transform="translate(170, 48)">
+    <use href="#hex" class="node-hex" />
+    <rect x="5" y="7" width="10" height="10" fill="none" stroke="#555" stroke-width="0.5"/>
+    <circle cx="10" cy="12" r="1" fill="#555"/>
+    <text x="10" y="30" class="node-label">BPO</text>
+  </g>
+  
+  <g transform="translate(90, 48)">
+    <use href="#hex" class="node-hex" style="stroke: var(--cyan); filter: drop-shadow(0 0 1px var(--cyan));" />
+    <polygon points="10,6 14,10 10,14 6,10" fill="var(--cyan)" />
+    <text x="10" y="30" class="node-label">CORE</text>
+  </g>
+
+  <g class="flow-line cyan-flow">
+    <path d="M30,30 L90,60" /> <path d="M30,90 L90,60" /> <path d="M110,60 L170,60" /> <path d="M110,60 L140,20 Q160,20 170,48" stroke-dasharray="1 5" opacity="0.3"/> </g>
+
+  <path id="SOLAR_TO_BPO" d="M30,30 C60,10 140,10 170,48" class="flow-line" />
+
+  <text x="195" y="115" class="hud-text" text-anchor="end">ARBITRAGE: ACTIVE</text>
+
+  <rect x="0" y="0" width="200" height="120" fill="url(#scanlines)" pointer-events="none"/>
+
+</svg>

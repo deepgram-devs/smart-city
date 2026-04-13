@@ -203,9 +203,26 @@ class VoiceAgent:
                                             "type": "InjectAgentMessage",
                                             "message": filler,
                                         }))
+                                        socketio.emit("show_viz", {"svg": "saga-loading"})
                                 # Don't emit 'listening' here - only on close
                             elif fn_name == "close_hotword_session":
                                 socketio.emit("hotword_state", {"state": "listening"})
+
+                            # Emit visualization for SAGA functions
+                            VIZ_MAP = {
+                                "get_grid_status": "saga-smart-grid",
+                                "analyze_energy_spike": "saga-smart-grid",
+                                "get_zone_overview": "saga-smart-grid",
+                                "book_pod": "transit-telemetry",
+                                "activate_flood_gates": "flood-gate",
+                                "get_weather_alert": "flood-gate",
+                                "send_mass_alert": "flood-gate",
+                                "check_backup_power": "flood-gate",
+                                "book_emergency_accommodation": "flood-gate",
+                            }
+                            viz = VIZ_MAP.get(fn_name)
+                            if viz:
+                                socketio.emit("show_viz", {"svg": viz})
 
                             await self.ws.send(json.dumps({
                                 "type": "FunctionCallResponse",

@@ -444,6 +444,34 @@
     font-style: italic;
   }
 
+  /* SVG Visualization Overlay */
+  .viz-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10, 10, 15, 0.85);
+    backdrop-filter: blur(8px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+  }
+  .viz-overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .viz-container {
+    max-width: 560px;
+    width: 80%;
+  }
+  .viz-container svg {
+    width: 100%;
+    height: auto;
+    border-radius: var(--radius);
+  }
+
   /* Responsive */
   @media (max-width: 1024px) {
     .app {
@@ -457,6 +485,11 @@
 <body>
 
 <div class="app">
+  <!-- SVG Visualization Overlay -->
+  <div class="viz-overlay" id="vizOverlay">
+    <div class="viz-container" id="vizContainer"></div>
+  </div>
+
   <!-- Header -->
   <header class="header">
     <div class="logo">
@@ -877,6 +910,49 @@ function animateViz(on) {
     bars.forEach(b => { b.style.height = '4px'; b.classList.remove('active'); });
   }
 }
+
+// ---------------------------------------------------------------------------
+// SVG Visualization Overlay
+// ---------------------------------------------------------------------------
+let vizTimeout = null;
+const vizCache = {};
+
+socket.on('show_viz', async (data) => {
+  const overlay = document.getElementById('vizOverlay');
+  const container = document.getElementById('vizContainer');
+  const svgName = data.svg;
+
+  // Fetch SVG if not cached
+  if (!vizCache[svgName]) {
+    try {
+      const resp = await fetch(`/static/${svgName}.svg`);
+      vizCache[svgName] = await resp.text();
+    } catch (e) {
+      console.error('Failed to load SVG:', svgName, e);
+      return;
+    }
+  }
+
+  // Clear any pending hide
+  if (vizTimeout) { clearTimeout(vizTimeout); vizTimeout = null; }
+
+  // Inject and show
+  container.innerHTML = vizCache[svgName];
+  overlay.classList.add('visible');
+
+  // Auto-hide after 4 seconds
+  vizTimeout = setTimeout(() => {
+    overlay.classList.remove('visible');
+    vizTimeout = null;
+  }, 4000);
+});
+
+// Click overlay to dismiss early
+document.getElementById('vizOverlay').addEventListener('click', () => {
+  const overlay = document.getElementById('vizOverlay');
+  overlay.classList.remove('visible');
+  if (vizTimeout) { clearTimeout(vizTimeout); vizTimeout = null; }
+});
 </script>
 </body>
 </html>

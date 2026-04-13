@@ -1,0 +1,144 @@
+<svg width="400" height="200" viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    /* Base Color: SAGA Cyan */
+    :root {
+      --cyan: #00d4ff;
+      --alert: #ff4757;
+      --bg: #111;
+      --structure: #333;
+    }
+
+    svg {
+      background: var(--bg);
+      font-family: 'Courier New', Courier, monospace;
+    }
+
+    /* Standard lines */
+    .strut {
+      stroke: var(--structure);
+      stroke-width: 0.5;
+      fill: none;
+    }
+
+    /* The gates themselves */
+    .gate {
+      stroke: var(--cyan);
+      stroke-width: 1;
+      fill: none;
+      filter: drop-shadow(0 0 1px var(--cyan));
+      
+      /* Animation for lowering the gates */
+      animation: gate-deploy 10s ease-in-out infinite;
+    }
+
+    /* The water levels */
+    .water {
+      fill: var(--cyan);
+      opacity: 0.2;
+      animation: surge-level 10s ease-in-out infinite;
+    }
+
+    /* Status Text */
+    .status-text {
+      fill: var(--cyan);
+      font-size: 5px;
+      text-anchor: middle;
+      animation: text-update 10s infinite;
+    }
+
+    /* Alerts */
+    .alert-ring {
+      stroke: var(--alert);
+      stroke-width: 0.5;
+      fill: none;
+      opacity: 0;
+      animation: alarm-pulse 10s infinite;
+    }
+
+    /* ANIMATION DEFINITIONS */
+
+    /* 1. Gate movement (y-axis) */
+    @keyframes gate-deploy {
+      0%, 45% { transform: translateY(0); stroke: var(--cyan); }      /* Up / Normal */
+      50%, 55% { transform: translateY(0); stroke: var(--alert); }     /* Warning Pulse before deployment */
+      60%, 90% { transform: translateY(12px); stroke: var(--alert); } /* Deployed / Holding Surge */
+      95%, 100% { transform: translateY(0); stroke: var(--cyan); }   /* Retracting */
+    }
+
+    /* 2. Water Surge level (y and height) */
+    @keyframes surge-level {
+      0%, 40% { y: 85; height: 15; fill: var(--cyan); }    /* Normal bay level */
+      55%, 90% { y: 72; height: 28; fill: var(--alert); }  /* Surge level (2.0m threat) */
+      100% { y: 85; height: 15; fill: var(--cyan); }     /* Receding */
+    }
+
+    /* 3. Text Status Update */
+    @keyframes text-update {
+      0%, 49% { content: "STATUS: NOMINAL"; }
+      50% { fill: var(--alert); }
+      51%, 90% { fill: var(--alert); }
+      100% { fill: var(--cyan); }
+    }
+
+    /* 4. Background Alarm Pulse */
+    @keyframes alarm-pulse {
+      0%, 49% { opacity: 0; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1); }
+      52% { opacity: 0; transform: scale(1.5); }
+      54% { opacity: 1; transform: scale(1); }
+      56% { opacity: 0; transform: scale(1.5); }
+      57%, 100% { opacity: 0; }
+    }
+    
+  </style>
+
+  <text x="100" y="10" class="status-text">SENTINEL GATE ARRAY [12/12]</text>
+  <text x="100" y="18" class="status-text" id="dynamic-status">MONITORING</text>
+  
+  <line x1="10" y1="22" x2="190" y2="22" class="strut" />
+  <line x1="10" y1="92" x2="190" y2="92" class="strut" stroke-dasharray="2 2" />
+
+  <circle cx="100" y="55" r="15" class="alert-ring" />
+
+  <rect x="0" y="85" width="200" height="15" class="water" />
+
+  <g transform="translate(10, 60)">
+    <rect x="0" y="0" width="180" height="3" rx="1" class="strut" />
+    
+    <line x1="0"  y1="3" x2="0"  y2="15" class="strut" />
+    <line x1="15" y1="3" x2="15" y2="15" class="strut" />
+    <line x1="30" y1="3" x2="30" y2="15" class="strut" />
+    <line x1="45" y1="3" x2="45" y2="15" class="strut" />
+    <line x1="60" y1="3" x2="60" y2="15" class="strut" />
+    <line x1="75" y1="3" x2="75" y2="15" class="strut" />
+    <line x1="90" y1="3" x2="90" y2="15" class="strut" />
+    <line x1="105"y1="3" x2="105"y2="15" class="strut" />
+    <line x1="120"y1="3" x2="120"y2="15" class="strut" />
+    <line x1="135"y1="3" x2="135"y2="15" class="strut" />
+    <line x1="150"y1="3" x2="150"y2="15" class="strut" />
+    <line x1="165"y1="3" x2="165"y2="15" class="strut" />
+    <line x1="180"y1="3" x2="180"y2="15" class="strut" />
+
+    <rect x="2.5"  y="-10" width="10" height="12" rx="0.5" class="gate" />
+    <rect x="17.5" y="-10" width="10" height="12" rx="0.5" class="gate" animation-delay="0.1s"/>
+    <rect x="32.5" y="-10" width="10" height="12" rx="0.5" class="gate" />
+    <rect x="47.5" y="-10" width="10" height="12" rx="0.5" class="gate" />
+    <rect x="62.5" y="-10" width="10" height="12" rx="0.5" class="gate" />
+    <rect x="77.5" y="-10" width="10" height="12" rx="0.5" class="gate" />
+    <rect x="92.5" y="-10" width="10" height="12" rx="0.5" class="gate" />
+    <rect x="107.5"y="-10" width="10" height="12" rx="0.5" class="gate" />
+    <rect x="122.5"y="-10" width="10" height="12" rx="0.5" class="gate" />
+    <rect x="137.5"y="-10" width="10" height="12" rx="0.5" class="gate" />
+    <rect x="152.5"y="-10" width="10" height="12" rx="0.5" class="gate" />
+    <rect x="167.5"y="-10" width="10" height="12" rx="0.5" class="gate" />
+  </g>
+  
+  <rect x="0" y="0" width="200" height="100" fill="url(#scanlines)" opacity="0.1" pointer-events="none"/>
+  
+  <defs>
+    <pattern id="scanlines" width="200" height="2" patternUnits="userSpaceOnUse">
+      <line x1="0" y1="0" x2="200" y2="0" stroke="#fff" stroke-width="0.5"/>
+    </pattern>
+  </defs>
+
+</svg>

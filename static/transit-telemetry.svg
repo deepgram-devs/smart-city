@@ -1,0 +1,135 @@
+<svg width="600" height="300" viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    /* SAGA UI Aesthetic */
+    :root {
+      --cyan: #00d4ff;
+      --track: #222;
+      --station: #00d4ff;
+      --pod: #fff;
+      --bg: #0a0a0c;
+    }
+    svg { background-color: var(--bg); font-family: monospace; }
+
+    /* Tracks */
+    .track-base { stroke: var(--track); fill: none; stroke-width: 0.5; }
+    .track-express { stroke: #333; fill: none; stroke-width: 0.7; stroke-dasharray: 2 2;}
+
+    /* Stations */
+    .station-node { fill: var(--bg); stroke: var(--station); stroke-width: 0.7; }
+    .station-hub { fill: var(--station); } /* Active transfer hubs */
+    .station-label { fill: #fff; font-size: 3px; font-weight: bold; text-anchor: middle;}
+
+    /* Pod Units */
+    .pod-active { fill: var(--pod); opacity: 0.8; filter: drop-shadow(0 0 1px var(--cyan)); }
+
+    /* HUD Elements */
+    .hud-header { fill: var(--cyan); font-size: 5px; text-transform: uppercase; }
+    .hud-data { fill: var(--cyan); font-size: 4px; }
+    .hud-box { fill: none; stroke: var(--track); stroke-width: 0.5; }
+
+    /* Keyframe Animations (Pulse) */
+    @keyframes hub-pulse { 0%, 100% { filter: drop-shadow(0 0 1px var(--cyan)); opacity: 1; } 50% { filter: drop-shadow(0 0 4px var(--cyan)); opacity: 0.7; } }
+    .active-hub { animation: hub-pulse 2s infinite; }
+    @keyframes scanning { 0% { transform: scaleY(0); } 100% { transform: scaleY(1); } }
+  </style>
+
+  <defs>
+    <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
+      <path d="M 10 0 L 0 0 0 10" fill="none" stroke="#151515" stroke-width="0.5"/>
+    </pattern>
+  </defs>
+  <rect width="200" height="100" fill="url(#grid)"/>
+
+  <text x="10" y="10" class="hud-header">SAGA // TRANSIT_OS // PODWAY_LIVE_TELEMETRY</text>
+  <text x="190" y="10" class="hud-header" text-anchor="end">STATUS: FLUID_OPTIMIZED</text>
+  
+  <rect x="10" y="75" width="60" height="15" class="hud-box"/>
+  <text x="15" y="81" class="hud-data">ACTIVE_PODS:</text>
+  <text x="65" y="81" class="hud-data" text-anchor="end" fill="#fff" font-weight="bold">491/500</text>
+  <text x="15" y="87" class="hud-data">AVG_WAIT:</text>
+  <text x="65" y="87" class="hud-data" text-anchor="end" fill="#fff" font-weight="bold">2.3 min</text>
+
+  <rect x="130" y="75" width="60" height="15" class="hud-box"/>
+  <text x="135" y="81" class="hud-data">FLOW RATE:</text>
+  <text x="185" y="81" class="hud-data" text-anchor="end" fill="#fff">14.2/sec</text>
+  <text x="135" y="87" class="hud-data">HUB LOAD:</text>
+  <text x="185" y="87" class="hud-data" text-anchor="end" fill="#fff">NOMINAL (41%)</text>
+
+  <ellipse id="local-loop" cx="100" cy="50" rx="75" ry="35" class="track-base" />
+
+  <rect id="express-lane" x="60" y="30" width="80" height="40" rx="5" class="track-express" />
+  
+  <path id="cross-connect" d="M100,15 V85" class="track-base" stroke-dasharray="1 1"/>
+
+  <g transform="translate(100, 50)">
+    <circle r="4" class="station-node active-hub" fill="var(--station)" opacity="0.4"/>
+    <circle r="2" class="station-hub active-hub"/>
+    <text y="-6" class="station-label">P1</text>
+  </g>
+
+  <g transform="translate(160, 50)">
+    <circle r="3" class="station-node"/>
+    <rect x="-1" y="-1" width="2" height="2" class="station-hub active-hub"/>
+    <text x="5" y="1" class="station-label" text-anchor="start">BPO</text>
+  </g>
+
+  <g transform="translate(60, 20)">
+    <circle r="2.5" class="station-node"/>
+    <text y="-5" class="station-label">RN</text>
+  </g>
+  
+  <g transform="translate(60, 80)">
+    <circle r="2.5" class="station-node"/>
+    <text y="7" class="station-label">MD</text>
+  </g>
+
+  <defs>
+    <circle id="pod_unit" r="0.8" class="pod-active" />
+  </defs>
+
+  <g>
+    <use href="#pod_unit">
+      <animateMotion dur="8s" repeatCount="indefinite" rotate="auto" path="M175,50 a75,35 0 1,1 0,0.1 Z" />
+    </use>
+    <use href="#pod_unit" x="10">
+      <animateMotion dur="8s" begin="0.5s" repeatCount="indefinite" rotate="auto" path="M175,50 a75,35 0 1,1 0,0.1 Z" />
+    </use>
+    <use href="#pod_unit" x="-10">
+      <animateMotion dur="8s" begin="1.2s" repeatCount="indefinite" rotate="auto" path="M175,50 a75,35 0 1,1 0,0.1 Z" />
+    </use>
+    <use href="#pod_unit">
+      <animateMotion dur="8s" begin="2.5s" repeatCount="indefinite" rotate="auto" path="M175,50 a75,35 0 1,1 0,0.1 Z" />
+    </use>
+    <use href="#pod_unit">
+      <animateMotion dur="8s" begin="4s" repeatCount="indefinite" rotate="auto" path="M175,50 a75,35 0 1,1 0,0.1 Z" />
+    </use>
+     <use href="#pod_unit">
+      <animateMotion dur="8s" begin="6.1s" repeatCount="indefinite" rotate="auto" path="M175,50 a75,35 0 1,1 0,0.1 Z" />
+    </use>
+  </g>
+  
+  <g fill="var(--cyan)"> <use href="#pod_unit">
+      <animateMotion dur="5s" repeatCount="indefinite" rotate="auto" path="M140,35 v30 a5,5 0 0,1 -5,5 h-70 a5,5 0 0,1 -5,-5 v-30 a5,5 0 0,1 5,-5 h70 a5,5 0 0,1 5,5 Z" />
+    </use>
+    <use href="#pod_unit">
+      <animateMotion dur="5s" begin="1s" repeatCount="indefinite" rotate="auto" path="M140,35 v30 a5,5 0 0,1 -5,5 h-70 a5,5 0 0,1 -5,-5 v-30 a5,5 0 0,1 5,-5 h70 a5,5 0 0,1 5,5 Z" />
+    </use>
+    <use href="#pod_unit">
+      <animateMotion dur="5s" begin="2.2s" repeatCount="indefinite" rotate="auto" path="M140,35 v30 a5,5 0 0,1 -5,5 h-70 a5,5 0 0,1 -5,-5 v-30 a5,5 0 0,1 5,-5 h70 a5,5 0 0,1 5,5 Z" />
+    </use>
+    <use href="#pod_unit">
+      <animateMotion dur="5s" begin="3.8s" repeatCount="indefinite" rotate="auto" path="M140,35 v30 a5,5 0 0,1 -5,5 h-70 a5,5 0 0,1 -5,-5 v-30 a5,5 0 0,1 5,-5 h70 a5,5 0 0,1 5,5 Z" />
+    </use>
+  </g>
+
+  <g fill="#555"> <use href="#pod_unit">
+      <animateMotion dur="4s" repeatCount="indefinite" path="M100,15 V85" />
+    </use>
+    <use href="#pod_unit">
+      <animateMotion dur="4s" begin="2s" repeatCount="indefinite" path="M100,15 V85" />
+    </use>
+     <use href="#pod_unit">
+      <animateMotion dur="4s" begin="1s" repeatCount="indefinite" path="M100,85 V15" /> </use>
+  </g>
+
+</svg>
