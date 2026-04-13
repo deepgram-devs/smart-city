@@ -708,6 +708,8 @@ let micStream = null;
 let scriptProcessor = null;
 let nextPlayTime = 0;
 let isRunning = false;
+let hotwordState = 'listening';
+let vizShownThisConversation = false;
 
 // ---------------------------------------------------------------------------
 // Audio helpers
@@ -843,6 +845,7 @@ socket.on('hotword_state', (data) => {
     setStatus('listening');
   } else {
     setStatus('ambient');
+    vizShownThisConversation = false; // reset for next conversation
   }
 });
 
@@ -962,8 +965,6 @@ function detectChanges(prev, next) {
 // ---------------------------------------------------------------------------
 // Status indicator
 // ---------------------------------------------------------------------------
-let hotwordState = 'listening'; // 'listening' (ambient) or 'active' (in conversation)
-
 function setStatus(state) {
   const dot = document.getElementById('statusDot');
   const label = document.getElementById('statusLabel');
@@ -1012,16 +1013,7 @@ function animateViz(on) {
 // SVG Visualization Overlay
 // ---------------------------------------------------------------------------
 let vizTimeout = null;
-let vizShownThisConversation = false;
 const vizCache = {};
-
-// Reset viz flag when hotword state changes
-socket.on('hotword_state', (data) => {
-  // (handled above for status dot)
-  if (data.state === 'listening') {
-    vizShownThisConversation = false; // reset for next conversation
-  }
-});
 
 socket.on('show_viz', async (data) => {
   // Only show one visualization per hotword conversation

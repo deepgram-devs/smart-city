@@ -36,6 +36,20 @@ AUDIO_SETTINGS = {
     "output": {"encoding": "linear16", "sample_rate": AUDIO_SAMPLE_RATE, "container": "none"},
 }
 
+HOTWORD_BYPASS = {"check_hotword", "close_hotword_session"}
+
+VIZ_MAP = {
+    "get_grid_status": "saga-smart-grid",
+    "analyze_energy_spike": "saga-smart-grid",
+    "get_zone_overview": "saga-smart-grid",
+    "book_pod": "transit-telemetry",
+    "activate_flood_gates": "flood-gate",
+    "get_weather_alert": "flood-gate",
+    "send_mass_alert": "flood-gate",
+    "check_backup_power": "flood-gate",
+    "book_emergency_accommodation": "flood-gate",
+}
+
 # Flask setup
 app = Flask(__name__, static_folder="./static", static_url_path="/static")
 socketio = SocketIO(app, cors_allowed_origins="*")
@@ -90,7 +104,7 @@ def build_settings() -> dict:
             "language": cfg.get("language", "en"),
             "listen": {"provider": {"type": "deepgram", "model": "nova-3", "keyterms": ["Hey Saga", "Saga"]}},
             "think": {
-                "provider": {"type": "anthropic", "model": "claude-4-5-haiku-latest", "temperature": 0.7},
+                "provider": {"type": "anthropic", "model": "claude-3-5-sonnet-latest", "temperature": 0.7},
                 "prompt": system_prompt,
                 "functions": functions,
             },
@@ -133,6 +147,20 @@ class VoiceAgent:
         except Exception as e:
             logger.error(f"Failed to connect to Deepgram: {e}")
             return False
+
+    async def _handle_hotword_activation(self, result):
+        """Handle hotword activation: emit state and inject filler on fresh activation."""
+        if not result.get("active"):
+            return
+        socketio.emit("hotword_state", {"state": "active"})
+        if result.get("freshly_activated"):
+            filler = get_random_filler()
+            logger.info(f"Injecting filler: {filler}")
+            await self.ws.send(json.dumps({
+                "type": "InjectAgentMessage",
+                "message": filler,
+            }))
+            socketio.emit("show_viz", {"svg": "saga-loading"})
 
     async def sender(self):
         try:
@@ -177,24 +205,13 @@ class VoiceAgent:
                             # Server-side hotword gate: if conversation not active
                             # and the LLM skipped check_hotword, auto-check the
                             # last transcript before blocking
-                            HOTWORD_BYPASS = {"check_hotword", "close_hotword_session"}
                             if fn_name not in HOTWORD_BYPASS and not is_conversation_active():
-                                # Auto-check: maybe the LLM skipped check_hotword
                                 if last_user_transcript:
                                     auto_result = await check_hotword({"transcript": last_user_transcript})
                                     if auto_result.get("active"):
                                         logger.info(f"Auto-activated hotword from transcript: {last_user_transcript[:50]}")
-                                        socketio.emit("hotword_state", {"state": "active"})
-                                        if auto_result.get("freshly_activated"):
-                                            filler = get_random_filler()
-                                            logger.info(f"Auto-injecting filler: {filler}")
-                                            await self.ws.send(json.dumps({
-                                                "type": "InjectAgentMessage",
-                                                "message": filler,
-                                            }))
-                                            socketio.emit("show_viz", {"svg": "saga-loading"})
+                                        await self._handle_hotword_activation(auto_result)
 
-                                # Still blocked after auto-check
                                 if not is_conversation_active():
                                     logger.info(f"BLOCKED {fn_name}: hotword not active")
                                     await self.ws.send(json.dumps({
@@ -213,34 +230,11 @@ class VoiceAgent:
 
                             # Emit hotword state changes to frontend
                             if fn_name == "check_hotword":
-                                if result.get("active"):
-                                    socketio.emit("hotword_state", {"state": "active"})
-                                    # Only inject filler on FRESH activation (hotword spoken),
-                                    # not on continued conversation within the same session
-                                    if result.get("freshly_activated"):
-                                        filler = get_random_filler()
-                                        logger.info(f"Auto-injecting filler: {filler}")
-                                        await self.ws.send(json.dumps({
-                                            "type": "InjectAgentMessage",
-                                            "message": filler,
-                                        }))
-                                        socketio.emit("show_viz", {"svg": "saga-loading"})
-                                # Don't emit 'listening' here - only on close
+                                await self._handle_hotword_activation(result)
                             elif fn_name == "close_hotword_session":
                                 socketio.emit("hotword_state", {"state": "listening"})
 
                             # Emit visualization for SAGA functions
-                            VIZ_MAP = {
-                                "get_grid_status": "saga-smart-grid",
-                                "analyze_energy_spike": "saga-smart-grid",
-                                "get_zone_overview": "saga-smart-grid",
-                                "book_pod": "transit-telemetry",
-                                "activate_flood_gates": "flood-gate",
-                                "get_weather_alert": "flood-gate",
-                                "send_mass_alert": "flood-gate",
-                                "check_backup_power": "flood-gate",
-                                "book_emergency_accommodation": "flood-gate",
-                            }
                             viz = VIZ_MAP.get(fn_name)
                             if viz:
                                 socketio.emit("show_viz", {"svg": viz})
