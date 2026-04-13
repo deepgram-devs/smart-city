@@ -156,6 +156,26 @@
     border-radius: var(--radius);
     padding: 14px 16px;
     margin-bottom: 8px;
+    transition: box-shadow 0.3s, border-color 0.3s;
+    border: 1px solid transparent;
+  }
+  .dash-card.pulse {
+    border-color: var(--accent);
+    box-shadow: 0 0 12px var(--accent-glow), inset 0 0 8px rgba(74, 158, 255, 0.05);
+    animation: card-pulse 1.5s ease-out;
+  }
+  .dash-card.pulse-alert {
+    border-color: var(--red);
+    box-shadow: 0 0 12px rgba(248, 113, 113, 0.2), inset 0 0 8px rgba(248, 113, 113, 0.05);
+    animation: card-pulse-alert 1.5s ease-out;
+  }
+  @keyframes card-pulse {
+    0% { border-color: var(--accent); box-shadow: 0 0 20px rgba(74, 158, 255, 0.3); }
+    100% { border-color: transparent; box-shadow: none; }
+  }
+  @keyframes card-pulse-alert {
+    0% { border-color: var(--red); box-shadow: 0 0 20px rgba(248, 113, 113, 0.3); }
+    100% { border-color: transparent; box-shadow: none; }
   }
 
   .dash-card-header {
@@ -800,9 +820,21 @@ socket.on('agent_ready', () => {
 });
 
 // Also poll on load
-fetch('/api/city-state').then(r => r.json()).then(renderDashboard);
+let prevState = null;
+fetch('/api/city-state').then(r => r.json()).then(s => { prevState = s; renderDashboard(s); });
+
+function pulseCard(sectionId, alertStyle) {
+  const cards = document.querySelectorAll(`#${sectionId} .dash-card`);
+  cards.forEach(c => {
+    c.classList.remove('pulse', 'pulse-alert');
+    void c.offsetWidth; // force reflow
+    c.classList.add(alertStyle ? 'pulse-alert' : 'pulse');
+  });
+}
 
 function renderDashboard(s) {
+  const changed = prevState ? detectChanges(prevState, s) : new Set();
+
   // Power
   const grid = s.power_grid;
   const pct = Math.round(grid.current_load_mw / grid.total_capacity_mw * 100);
@@ -814,10 +846,12 @@ function renderDashboard(s) {
   const badge = document.getElementById('gridBadge');
   if (hasSpike) { badge.textContent = 'Elevated'; badge.className = 'dash-badge warning'; }
   else { badge.textContent = 'Normal'; badge.className = 'dash-badge'; }
+  if (changed.has('power')) pulseCard('powerSection');
 
   // Transit
   document.getElementById('podsAvail').textContent = s.transit.autonomous_pods.available;
   document.getElementById('podsWait').textContent = s.transit.autonomous_pods.avg_wait_min + ' min';
+  if (changed.has('transit')) pulseCard('transitSection');
 
   // Weather
   document.getElementById('weatherTemp').innerHTML = `${s.weather.current.temp_c}<span class="dash-unit">&deg;C</span>`;
@@ -835,6 +869,7 @@ function renderDashboard(s) {
     alertCard.style.display = 'none';
     weatherBadge.style.display = 'none';
   }
+  if (changed.has('weather')) pulseCard('weatherSection', true);
 
   // Flood gates
   const fb = document.getElementById('floodBadge');
@@ -846,10 +881,12 @@ function renderDashboard(s) {
     fb.textContent = 'Open'; fb.className = 'dash-badge';
     fs.textContent = 'Open';
   }
+  if (changed.has('flood')) pulseCard('floodSection', true);
 
   // Resident
   document.getElementById('resClimate').innerHTML = `${s.resident.climate.target_temp_c}&deg;C`;
   document.getElementById('resCredits').textContent = `$${s.resident.energy_credits.toFixed(2)}`;
+  if (changed.has('resident')) pulseCard('residentSection');
 
   // Activity feed
   const feed = document.getElementById('activityFeed');
@@ -860,6 +897,19 @@ function renderDashboard(s) {
     item.innerHTML = `<div class="action-time">${a.time}</div><div class="action-text">${a.action}</div>`;
     feed.appendChild(item);
   });
+
+  prevState = JSON.parse(JSON.stringify(s));
+}
+
+function detectChanges(prev, next) {
+  const changed = new Set();
+  if (JSON.stringify(prev.power_grid) !== JSON.stringify(next.power_grid)) changed.add('power');
+  if (JSON.stringify(prev.transit) !== JSON.stringify(next.transit)) changed.add('transit');
+  if (JSON.stringify(prev.weather) !== JSON.stringify(next.weather)) changed.add('weather');
+  if (JSON.stringify(prev.flood_gates) !== JSON.stringify(next.flood_gates)) changed.add('flood');
+  if (JSON.stringify(prev.resident) !== JSON.stringify(next.resident)) changed.add('resident');
+  if (JSON.stringify(prev.emergency) !== JSON.stringify(next.emergency)) changed.add('weather');
+  return changed;
 }
 
 // ---------------------------------------------------------------------------
