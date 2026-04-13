@@ -212,6 +212,12 @@ class VoiceAgent:
                             if fn_name == "check_hotword":
                                 if result.get("active"):
                                     socketio.emit("hotword_state", {"state": "active"})
+                                    # Auto-inject filler when hotword activates
+                                    logger.info("Auto-injecting filler on hotword activation")
+                                    await self.ws.send(json.dumps({
+                                        "type": "InjectAgentMessage",
+                                        "message": "One moment.",
+                                    }))
                                 # Don't emit 'listening' here - only on close
                             elif fn_name == "close_hotword_session":
                                 socketio.emit("hotword_state", {"state": "listening"})
