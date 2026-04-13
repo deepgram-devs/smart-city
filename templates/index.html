@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SAGA</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface-2: #1a1a25;
+    --border: rgba(255,255,255,0.06);
+    --text: #e8e8ed;
+    --text-dim: #6b6b7b;
+    --text-muted: #3d3d4d;
+    --accent: #4a9eff;
+    --accent-glow: rgba(74, 158, 255, 0.15);
+    --green: #34d399;
+    --amber: #fbbf24;
+    --red: #f87171;
+    --radius: 12px;
+  }
+
+  html, body {
+    height: 100%;
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overflow: hidden;
+  }
+
+  /* Layout */
+  .app {
+    display: grid;
+    grid-template-columns: 320px 1fr 300px;
+    grid-template-rows: 56px 1fr;
+    height: 100vh;
+    gap: 1px;
+    background: var(--border);
+  }
+
+  /* Header */
+  .header {
+    grid-column: 1 / -1;
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-mark {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), #7c3aed);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 12px;
+    color: white;
+  }
+
+  .logo-text {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    color: var(--text);
+  }
+
+  .logo-sub {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-weight: 400;
+    letter-spacing: 0.5px;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    transition: background 0.3s;
+  }
+  .status-dot.active {
+    background: var(--green);
+    box-shadow: 0 0 8px rgba(52, 211, 153, 0.5);
+  }
+  .status-dot.listening {
+    background: var(--accent);
+    box-shadow: 0 0 8px rgba(74, 158, 255, 0.5);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .status-label {
+    font-size: 12px;
+    color: var(--text-dim);
+    font-weight: 400;
+  }
+
+  /* Panels */
+  .panel {
+    background: var(--surface);
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--surface-2) transparent;
+  }
+
+  .panel-title {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    padding: 20px 20px 12px;
+  }
+
+  /* Left: City Dashboard */
+  .dashboard { padding-bottom: 20px; }
+
+  .dash-section {
+    padding: 0 20px;
+    margin-bottom: 16px;
+  }
+
+  .dash-card {
+    background: var(--surface-2);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 8px;
+  }
+
+  .dash-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .dash-card-title {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-dim);
+  }
+
+  .dash-badge {
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 100px;
+    background: rgba(52, 211, 153, 0.12);
+    color: var(--green);
+  }
+  .dash-badge.warning {
+    background: rgba(251, 191, 36, 0.12);
+    color: var(--amber);
+  }
+  .dash-badge.alert {
+    background: rgba(248, 113, 113, 0.12);
+    color: var(--red);
+  }
+
+  .dash-value {
+    font-size: 22px;
+    font-weight: 300;
+    color: var(--text);
+    line-height: 1;
+  }
+
+  .dash-unit {
+    font-size: 12px;
+    color: var(--text-dim);
+    font-weight: 400;
+  }
+
+  .dash-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 4px 0;
+  }
+
+  .dash-label {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .dash-detail {
+    font-size: 11px;
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  .bar-track {
+    height: 3px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 2px;
+    margin-top: 6px;
+    overflow: hidden;
+  }
+
+  .bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--accent);
+    transition: width 0.6s ease;
+  }
+  .bar-fill.warning { background: var(--amber); }
+  .bar-fill.alert { background: var(--red); }
+
+  /* Center: Conversation */
+  .conversation {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+  }
+
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--surface-2) transparent;
+  }
+
+  .msg {
+    max-width: 85%;
+    padding: 12px 16px;
+    border-radius: 16px;
+    font-size: 14px;
+    line-height: 1.5;
+    animation: fadeIn 0.2s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .msg.user {
+    align-self: flex-end;
+    background: var(--surface-2);
+    color: var(--text);
+    border-bottom-right-radius: 4px;
+  }
+
+  .msg.assistant {
+    align-self: flex-start;
+    background: var(--accent-glow);
+    color: var(--text);
+    border-bottom-left-radius: 4px;
+    border: 1px solid rgba(74, 158, 255, 0.1);
+  }
+
+  .msg-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+  }
+
+  .welcome-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    opacity: 0.6;
+  }
+
+  .welcome-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, var(--accent), #7c3aed);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    color: white;
+    font-weight: 300;
+  }
+
+  .welcome-text {
+    font-size: 14px;
+    color: var(--text-dim);
+    text-align: center;
+    line-height: 1.6;
+  }
+
+  /* Controls */
+  .controls {
+    padding: 16px 32px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+  }
+
+  .btn {
+    height: 44px;
+    padding: 0 24px;
+    border: none;
+    border-radius: 22px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+  }
+  .btn-primary:hover { background: #3a8eef; }
+  .btn-primary:disabled {
+    background: var(--surface-2);
+    color: var(--text-muted);
+    cursor: not-allowed;
+  }
+
+  .btn-ghost {
+    background: var(--surface-2);
+    color: var(--text-dim);
+  }
+  .btn-ghost:hover { color: var(--text); background: var(--border); }
+
+  .btn-stop {
+    background: rgba(248, 113, 113, 0.12);
+    color: var(--red);
+  }
+  .btn-stop:hover { background: rgba(248, 113, 113, 0.2); }
+
+  /* Visualizer */
+  .visualizer {
+    width: 120px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+  }
+
+  .viz-bar {
+    width: 3px;
+    height: 4px;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: height 0.1s ease;
+    opacity: 0.4;
+  }
+  .viz-bar.active { opacity: 1; }
+
+  /* Right: Activity Feed */
+  .activity { padding-bottom: 20px; }
+
+  .action-item {
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border);
+    animation: fadeIn 0.3s ease;
+  }
+
+  .action-time {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .action-text {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 2px;
+    line-height: 1.4;
+  }
+
+  .scenario-hints {
+    padding: 0 20px;
+  }
+
+  .hint {
+    background: var(--surface-2);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    margin-bottom: 6px;
+    cursor: default;
+  }
+
+  .hint-num {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 2px;
+  }
+
+  .hint-title {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+
+  .hint-example {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  /* Responsive */
+  @media (max-width: 1024px) {
+    .app {
+      grid-template-columns: 1fr;
+      grid-template-rows: 56px 1fr;
+    }
+    .dashboard, .activity { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- Header -->
+  <header class="header">
+    <div class="logo">
+      <div class="logo-mark">S</div>
+      <div>
+        <div class="logo-text">SAGA</div>
+        <div class="logo-sub">Smart City Intelligence</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="status-dot" id="statusDot"></div>
+      <span class="status-label" id="statusLabel">Offline</span>
+    </div>
+  </header>
+
+  <!-- Left: Dashboard -->
+  <div class="panel dashboard" id="dashboard">
+    <div class="panel-title">City Systems</div>
+
+    <div class="dash-section" id="powerSection">
+      <div class="dash-card">
+        <div class="dash-card-header">
+          <span class="dash-card-title">Power Grid</span>
+          <span class="dash-badge" id="gridBadge">Normal</span>
+        </div>
+        <div class="dash-value" id="gridLoad">612 <span class="dash-unit">/ 850 MW</span></div>
+        <div class="bar-track"><div class="bar-fill" id="gridBar" style="width:72%"></div></div>
+        <div class="dash-row" style="margin-top:8px">
+          <span class="dash-label">Renewable</span>
+          <span class="dash-detail" id="gridRenewable">78%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="dash-section" id="transitSection">
+      <div class="dash-card">
+        <div class="dash-card-header">
+          <span class="dash-card-title">Transit</span>
+          <span class="dash-badge">On Time</span>
+        </div>
+        <div class="dash-row">
+          <span class="dash-label">Pods available</span>
+          <span class="dash-detail" id="podsAvail">342</span>
+        </div>
+        <div class="dash-row">
+          <span class="dash-label">Avg wait</span>
+          <span class="dash-detail" id="podsWait">2.3 min</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="dash-section" id="weatherSection">
+      <div class="dash-card">
+        <div class="dash-card-header">
+          <span class="dash-card-title">Weather</span>
+          <span class="dash-badge alert" id="weatherBadge" style="display:none">Alert</span>
+        </div>
+        <div class="dash-value" id="weatherTemp">31<span class="dash-unit">&deg;C</span></div>
+        <div class="dash-row">
+          <span class="dash-label" id="weatherCond">Partly Cloudy</span>
+          <span class="dash-detail" id="weatherWind">18 kph</span>
+        </div>
+      </div>
+      <div class="dash-card" id="alertCard" style="display:none; border-left: 2px solid var(--red);">
+        <div class="dash-card-title" style="color: var(--red); margin-bottom:4px">Active Alert</div>
+        <div class="dash-label" id="alertText"></div>
+      </div>
+    </div>
+
+    <div class="dash-section" id="floodSection">
+      <div class="dash-card">
+        <div class="dash-card-header">
+          <span class="dash-card-title">Flood Gates</span>
+          <span class="dash-badge" id="floodBadge">Open</span>
+        </div>
+        <div class="dash-row">
+          <span class="dash-label">Status</span>
+          <span class="dash-detail" id="floodStatus">Open</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="dash-section" id="residentSection">
+      <div class="dash-card">
+        <div class="dash-card-header">
+          <span class="dash-card-title">Resident</span>
+        </div>
+        <div class="dash-row">
+          <span class="dash-label">Climate</span>
+          <span class="dash-detail" id="resClimate">24&deg;C</span>
+        </div>
+        <div class="dash-row">
+          <span class="dash-label">Energy credits</span>
+          <span class="dash-detail" id="resCredits">$847.50</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Center: Conversation -->
+  <div class="conversation">
+    <div class="messages" id="messages">
+      <div class="welcome-state" id="welcome">
+        <div class="welcome-icon">S</div>
+        <div class="welcome-text">
+          Start a session, then say<br>
+          <strong>"Hey Saga"</strong> to begin
+        </div>
+      </div>
+    </div>
+    <div class="controls">
+      <div class="visualizer" id="visualizer">
+        <div class="viz-bar"></div><div class="viz-bar"></div><div class="viz-bar"></div>
+        <div class="viz-bar"></div><div class="viz-bar"></div><div class="viz-bar"></div>
+        <div class="viz-bar"></div><div class="viz-bar"></div><div class="viz-bar"></div>
+        <div class="viz-bar"></div><div class="viz-bar"></div><div class="viz-bar"></div>
+        <div class="viz-bar"></div><div class="viz-bar"></div><div class="viz-bar"></div>
+        <div class="viz-bar"></div>
+      </div>
+      <button class="btn btn-primary" id="startBtn" onclick="startSession()">Start Session</button>
+      <button class="btn btn-stop" id="stopBtn" onclick="stopSession()" style="display:none">Stop</button>
+    </div>
+  </div>
+
+  <!-- Right: Activity + Scenarios -->
+  <div class="panel activity">
+    <div class="panel-title">Scenarios</div>
+    <div class="scenario-hints">
+      <div class="hint">
+        <div class="hint-num">01</div>
+        <div class="hint-title">Command & Control</div>
+        <div class="hint-example">"Give me a status overlay of the Phase 1 power grid"</div>
+      </div>
+      <div class="hint">
+        <div class="hint-num">02</div>
+        <div class="hint-title">Frictionless Resident</div>
+        <div class="hint-example">"Book a pod, order my coffee, and cool my office to 22"</div>
+      </div>
+      <div class="hint">
+        <div class="hint-num">03</div>
+        <div class="hint-title">Smart Work</div>
+        <div class="hint-example">"Analyze last month's Smart Grid revenue"</div>
+      </div>
+      <div class="hint">
+        <div class="hint-num">04</div>
+        <div class="hint-title">Proactive Guardian</div>
+        <div class="hint-example">"What's the weather alert status?"</div>
+      </div>
+    </div>
+
+    <div class="panel-title" style="margin-top:8px">Activity</div>
+    <div id="activityFeed"></div>
+  </div>
+</div>
+
+<script>
+const socket = io();
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+let audioCtx = null;
+let micStream = null;
+let scriptProcessor = null;
+let nextPlayTime = 0;
+let isRunning = false;
+
+// ---------------------------------------------------------------------------
+// Audio helpers
+// ---------------------------------------------------------------------------
+function resampleToInt16_16k(float32, inputRate) {
+  const ratio = inputRate / 16000;
+  const outLen = Math.round(float32.length / ratio);
+  const out = new Int16Array(outLen);
+  for (let i = 0; i < outLen; i++) {
+    const srcIdx = i * ratio;
+    const lo = Math.floor(srcIdx);
+    const hi = Math.min(lo + 1, float32.length - 1);
+    const frac = srcIdx - lo;
+    const val = float32[lo] + frac * (float32[hi] - float32[lo]);
+    out[i] = Math.max(-32768, Math.min(32767, Math.round(val * 32767)));
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Session control
+// ---------------------------------------------------------------------------
+async function startSession() {
+  document.getElementById('welcome').style.display = 'none';
+  document.getElementById('startBtn').style.display = 'none';
+  document.getElementById('stopBtn').style.display = '';
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1, sampleRate: { ideal: 16000 } }
+    });
+    micStream = stream;
+
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioCtx.createMediaStreamSource(stream);
+    scriptProcessor = audioCtx.createScriptProcessor(1024, 1, 1);
+
+    scriptProcessor.onaudioprocess = (e) => {
+      if (!isRunning) return;
+      const float32 = e.inputBuffer.getChannelData(0);
+      const int16 = resampleToInt16_16k(float32, audioCtx.sampleRate);
+      socket.emit('audio_data', { audio: int16.buffer, sampleRate: 16000 });
+    };
+
+    source.connect(scriptProcessor);
+    scriptProcessor.connect(audioCtx.destination);
+
+    socket.emit('start_voice_agent', { browserAudio: true });
+    isRunning = true;
+    setStatus('listening');
+  } catch (err) {
+    console.error('Mic error:', err);
+    alert('Microphone access required');
+    document.getElementById('startBtn').style.display = '';
+    document.getElementById('stopBtn').style.display = 'none';
+  }
+}
+
+function stopSession() {
+  isRunning = false;
+  socket.emit('stop_voice_agent');
+
+  if (scriptProcessor) { scriptProcessor.disconnect(); scriptProcessor = null; }
+  if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+  if (audioCtx) { audioCtx.close(); audioCtx = null; }
+  nextPlayTime = 0;
+
+  document.getElementById('startBtn').style.display = '';
+  document.getElementById('stopBtn').style.display = 'none';
+  setStatus('offline');
+}
+
+// ---------------------------------------------------------------------------
+// Audio playback
+// ---------------------------------------------------------------------------
+socket.on('audio_output', (data) => {
+  if (!audioCtx || !isRunning) return;
+  const int16 = new Int16Array(data.audio);
+  const float32 = new Float32Array(int16.length);
+  for (let i = 0; i < int16.length; i++) float32[i] = int16[i] / 32768;
+
+  const buffer = audioCtx.createBuffer(1, float32.length, data.sampleRate || 16000);
+  buffer.getChannelData(0).set(float32);
+
+  const src = audioCtx.createBufferSource();
+  src.buffer = buffer;
+  src.connect(audioCtx.destination);
+
+  const now = audioCtx.currentTime;
+  if (nextPlayTime < now) nextPlayTime = now;
+  src.start(nextPlayTime);
+  nextPlayTime += buffer.duration;
+});
+
+socket.on('stop_audio_output', () => { nextPlayTime = 0; });
+
+// ---------------------------------------------------------------------------
+// Conversation
+// ---------------------------------------------------------------------------
+socket.on('conversation_update', (msg) => {
+  const container = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = `msg ${msg.role}`;
+
+  const label = document.createElement('div');
+  label.className = 'msg-label';
+  label.textContent = msg.role === 'user' ? 'YOU' : 'SAGA';
+  div.appendChild(label);
+
+  const text = document.createElement('div');
+  text.textContent = msg.content;
+  div.appendChild(text);
+
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+
+  // Update visualizer
+  if (msg.role === 'assistant') setStatus('speaking');
+  else setStatus('listening');
+});
+
+// ---------------------------------------------------------------------------
+// City state updates
+// ---------------------------------------------------------------------------
+socket.on('city_state_update', (state) => { renderDashboard(state); });
+
+// Also poll on load
+fetch('/api/city-state').then(r => r.json()).then(renderDashboard);
+
+function renderDashboard(s) {
+  // Power
+  const grid = s.power_grid;
+  const pct = Math.round(grid.current_load_mw / grid.total_capacity_mw * 100);
+  document.getElementById('gridLoad').innerHTML = `${grid.current_load_mw} <span class="dash-unit">/ ${grid.total_capacity_mw} MW</span>`;
+  document.getElementById('gridBar').style.width = pct + '%';
+  document.getElementById('gridRenewable').textContent = grid.renewable_pct + '%';
+
+  const hasSpike = Object.values(grid.zones).some(z => z.status === 'elevated');
+  const badge = document.getElementById('gridBadge');
+  if (hasSpike) { badge.textContent = 'Elevated'; badge.className = 'dash-badge warning'; }
+  else { badge.textContent = 'Normal'; badge.className = 'dash-badge'; }
+
+  // Transit
+  document.getElementById('podsAvail').textContent = s.transit.autonomous_pods.available;
+  document.getElementById('podsWait').textContent = s.transit.autonomous_pods.avg_wait_min + ' min';
+
+  // Weather
+  document.getElementById('weatherTemp').innerHTML = `${s.weather.current.temp_c}<span class="dash-unit">&deg;C</span>`;
+  document.getElementById('weatherCond').textContent = s.weather.current.condition;
+  document.getElementById('weatherWind').textContent = s.weather.current.wind_kph + ' kph';
+
+  const alertCard = document.getElementById('alertCard');
+  const weatherBadge = document.getElementById('weatherBadge');
+  if (s.weather.alerts && s.weather.alerts.length > 0) {
+    const a = s.weather.alerts[0];
+    alertCard.style.display = '';
+    weatherBadge.style.display = '';
+    document.getElementById('alertText').textContent = `${a.type}: ${a.surge_meters}m surge, ${a.location}, ETA ${a.predicted_time}`;
+  } else {
+    alertCard.style.display = 'none';
+    weatherBadge.style.display = 'none';
+  }
+
+  // Flood gates
+  const fb = document.getElementById('floodBadge');
+  const fs = document.getElementById('floodStatus');
+  if (s.flood_gates.status === 'scheduled') {
+    fb.textContent = 'Scheduled'; fb.className = 'dash-badge warning';
+    fs.textContent = 'Close at ' + s.flood_gates.scheduled_close;
+  } else {
+    fb.textContent = 'Open'; fb.className = 'dash-badge';
+    fs.textContent = 'Open';
+  }
+
+  // Resident
+  document.getElementById('resClimate').innerHTML = `${s.resident.climate.target_temp_c}&deg;C`;
+  document.getElementById('resCredits').textContent = `$${s.resident.energy_credits.toFixed(2)}`;
+
+  // Activity feed
+  const feed = document.getElementById('activityFeed');
+  feed.innerHTML = '';
+  (s.recent_actions || []).forEach(a => {
+    const item = document.createElement('div');
+    item.className = 'action-item';
+    item.innerHTML = `<div class="action-time">${a.time}</div><div class="action-text">${a.action}</div>`;
+    feed.appendChild(item);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Status indicator
+// ---------------------------------------------------------------------------
+function setStatus(state) {
+  const dot = document.getElementById('statusDot');
+  const label = document.getElementById('statusLabel');
+  dot.className = 'status-dot';
+
+  if (state === 'listening') {
+    dot.classList.add('listening');
+    label.textContent = 'Listening';
+    animateViz(true);
+  } else if (state === 'speaking') {
+    dot.classList.add('active');
+    label.textContent = 'Speaking';
+    animateViz(true);
+  } else {
+    label.textContent = 'Offline';
+    animateViz(false);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Visualizer animation
+// ---------------------------------------------------------------------------
+let vizInterval = null;
+function animateViz(on) {
+  const bars = document.querySelectorAll('.viz-bar');
+  if (on && !vizInterval) {
+    vizInterval = setInterval(() => {
+      bars.forEach(b => {
+        const h = 4 + Math.random() * 20;
+        b.style.height = h + 'px';
+        b.classList.toggle('active', h > 10);
+      });
+    }, 100);
+  } else if (!on && vizInterval) {
+    clearInterval(vizInterval);
+    vizInterval = null;
+    bars.forEach(b => { b.style.height = '4px'; b.classList.remove('active'); });
+  }
+}
+</script>
+</body>
+</html>
