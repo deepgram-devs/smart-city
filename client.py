@@ -104,7 +104,7 @@ def build_settings() -> dict:
             "language": cfg.get("language", "en"),
             "listen": {"provider": {"type": "deepgram", "model": "nova-3", "keyterms": ["Hey Saga", "Saga"]}},
             "think": {
-                "provider": {"type": "anthropic", "model": "claude-3-5-sonnet-latest", "temperature": 0.7},
+                "provider": {"type": "anthropic", "model": "claude-haiku-4-5", "temperature": 0.7},
                 "prompt": system_prompt,
                 "functions": functions,
             },
