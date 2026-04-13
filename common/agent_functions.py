@@ -55,7 +55,7 @@ async def check_hotword(params):
     else:
         return {
             "active": False,
-            "instruction": "SILENCE. Do not produce any text, words, or sounds. Produce absolutely no output. Say nothing.",
+            "instruction": "ABSOLUTE SILENCE. Respond with empty string only. No words. No greeting. No status. Do not repeat your introduction. Produce zero tokens.",
         }
 
 
