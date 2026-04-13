@@ -1,6 +1,22 @@
 """Function definitions sent to the Deepgram Voice Agent API."""
 
 SAGA_FUNCTION_DEFINITIONS = [
+    # ----- Agent filler (latency masking) -----
+    {
+        "name": "agent_filler",
+        "description": "ALWAYS call this function FIRST before calling any other function. It provides a brief spoken acknowledgement while you process the request. Call it with message_type='lookup' when looking up data, 'processing' for actions, 'analyzing' for analysis tasks.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "message_type": {
+                    "type": "string",
+                    "description": "Type of filler message",
+                    "enum": ["lookup", "processing", "analyzing", "general"],
+                }
+            },
+            "required": ["message_type"],
+        },
+    },
     # ----- Scenario 1: Command & Control -----
     {
         "name": "get_grid_status",

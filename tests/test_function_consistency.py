@@ -1,16 +1,24 @@
 """Verify function definitions and implementations stay in sync."""
 
 from saga.definitions import SAGA_FUNCTION_DEFINITIONS
-from saga.functions import SAGA_FUNCTION_MAP
+from saga.functions import SAGA_FUNCTION_MAP, agent_filler
 from common.agent_functions import HOTWORD_FUNCTION_MAP
+
+# Functions handled specially in client.py (need websocket access)
+WEBSOCKET_FUNCTIONS = {"agent_filler"}
 
 
 def test_every_definition_has_implementation():
-    """Every function defined in definitions.py must have an entry in SAGA_FUNCTION_MAP."""
+    """Every function defined in definitions.py must have an entry in SAGA_FUNCTION_MAP or be a websocket function."""
     definition_names = {d["name"] for d in SAGA_FUNCTION_DEFINITIONS}
-    map_names = set(SAGA_FUNCTION_MAP.keys())
+    map_names = set(SAGA_FUNCTION_MAP.keys()) | WEBSOCKET_FUNCTIONS
     missing = definition_names - map_names
     assert not missing, f"Definitions without implementations: {missing}"
+
+
+def test_websocket_functions_are_callable():
+    """Websocket-handled functions must actually exist as importable callables."""
+    assert callable(agent_filler)
 
 
 def test_every_implementation_has_definition():

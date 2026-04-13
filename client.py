@@ -18,7 +18,7 @@ from common.agent_functions import (
     CLOSE_HOTWORD_SESSION_DEFINITION,
     set_hotword,
 )
-from saga.functions import SAGA_FUNCTION_MAP
+from saga.functions import SAGA_FUNCTION_MAP, agent_filler
 from saga.definitions import SAGA_FUNCTION_DEFINITIONS
 from saga.mock_data import get_city_state, reset_city_state, CITY_STATE
 
@@ -164,6 +164,25 @@ class VoiceAgent:
                             params = json.loads(fn.get("arguments", "{}"))
 
                             logger.info(f"Function: {fn_name}({params})")
+
+                            if fn_name == "agent_filler":
+                                # Special handling: speak filler immediately
+                                result = await agent_filler(self.ws, params)
+                                inject_msg = result["inject_message"]
+                                fn_response = result["function_response"]
+
+                                # Send function response first
+                                await self.ws.send(json.dumps({
+                                    "type": "FunctionCallResponse",
+                                    "id": fn_id,
+                                    "name": fn_name,
+                                    "content": json.dumps(fn_response),
+                                }))
+                                # Then inject the filler so it's spoken immediately
+                                logger.info(f"Injecting filler: {inject_msg['message']}")
+                                await self.ws.send(json.dumps(inject_msg))
+                                continue
+
                             func = FUNCTION_MAP.get(fn_name)
                             if func:
                                 result = await func(params)
