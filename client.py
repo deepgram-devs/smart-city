@@ -18,6 +18,7 @@ from common.agent_functions import (
     CLOSE_HOTWORD_SESSION_DEFINITION,
     set_hotword,
     is_conversation_active,
+    check_hotword,
 )
 from saga.functions import SAGA_FUNCTION_MAP, get_random_filler
 from saga.definitions import SAGA_FUNCTION_DEFINITIONS
@@ -89,7 +90,7 @@ def build_settings() -> dict:
             "language": cfg.get("language", "en"),
             "listen": {"provider": {"type": "deepgram", "model": "nova-3", "keyterms": ["Hey Saga", "Saga"]}},
             "think": {
-                "provider": {"type": "open_ai", "model": "gpt-4o", "temperature": 0.7},
+                "provider": {"type": "anthropic", "model": "claude-4-5-haiku-latest", "temperature": 0.7},
                 "prompt": system_prompt,
                 "functions": functions,
             },
@@ -149,6 +150,7 @@ class VoiceAgent:
     async def receiver(self):
         try:
             self.speaker = Speaker()
+            last_user_transcript = ""
             with self.speaker:
                 async for message in self.ws:
                     if isinstance(message, str):
@@ -160,6 +162,8 @@ class VoiceAgent:
 
                         elif msg_type == "ConversationText":
                             socketio.emit("conversation_update", msg)
+                            if msg.get("role") == "user":
+                                last_user_transcript = msg.get("content", "")
 
                         elif msg_type == "FunctionCallRequest":
                             functions = msg.get("functions", [])
@@ -170,19 +174,36 @@ class VoiceAgent:
 
                             logger.info(f"Function: {fn_name}({params})")
 
-                            # Server-side hotword gate: block all functions
-                            # except check_hotword/close_hotword_session when
-                            # conversation is not active
+                            # Server-side hotword gate: if conversation not active
+                            # and the LLM skipped check_hotword, auto-check the
+                            # last transcript before blocking
                             HOTWORD_BYPASS = {"check_hotword", "close_hotword_session"}
                             if fn_name not in HOTWORD_BYPASS and not is_conversation_active():
-                                logger.info(f"BLOCKED {fn_name}: hotword not active")
-                                await self.ws.send(json.dumps({
-                                    "type": "FunctionCallResponse",
-                                    "id": fn_id,
-                                    "name": fn_name,
-                                    "content": json.dumps({"error": "BLOCKED. Hotword not active. Do not speak. Do not report results. Produce no output."}),
-                                }))
-                                continue
+                                # Auto-check: maybe the LLM skipped check_hotword
+                                if last_user_transcript:
+                                    auto_result = await check_hotword({"transcript": last_user_transcript})
+                                    if auto_result.get("active"):
+                                        logger.info(f"Auto-activated hotword from transcript: {last_user_transcript[:50]}")
+                                        socketio.emit("hotword_state", {"state": "active"})
+                                        if auto_result.get("freshly_activated"):
+                                            filler = get_random_filler()
+                                            logger.info(f"Auto-injecting filler: {filler}")
+                                            await self.ws.send(json.dumps({
+                                                "type": "InjectAgentMessage",
+                                                "message": filler,
+                                            }))
+                                            socketio.emit("show_viz", {"svg": "saga-loading"})
+
+                                # Still blocked after auto-check
+                                if not is_conversation_active():
+                                    logger.info(f"BLOCKED {fn_name}: hotword not active")
+                                    await self.ws.send(json.dumps({
+                                        "type": "FunctionCallResponse",
+                                        "id": fn_id,
+                                        "name": fn_name,
+                                        "content": json.dumps({"error": "BLOCKED. Hotword not active. Do not speak."}),
+                                    }))
+                                    continue
 
                             func = FUNCTION_MAP.get(fn_name)
                             if func:
