@@ -193,6 +193,14 @@ class VoiceAgent:
                             else:
                                 result = {"error": f"Unknown function: {fn_name}"}
 
+                            # Emit hotword state changes to frontend
+                            if fn_name == "check_hotword":
+                                if result.get("active"):
+                                    socketio.emit("hotword_state", {"state": "active"})
+                                # Don't emit 'listening' here - only on close
+                            elif fn_name == "close_hotword_session":
+                                socketio.emit("hotword_state", {"state": "listening"})
+
                             await self.ws.send(json.dumps({
                                 "type": "FunctionCallResponse",
                                 "id": fn_id,

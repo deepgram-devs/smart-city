@@ -100,6 +100,11 @@
     background: var(--text-muted);
     transition: background 0.3s;
   }
+  .status-dot.ambient {
+    background: var(--amber);
+    box-shadow: 0 0 6px rgba(251, 191, 36, 0.3);
+    animation: pulse 3s infinite;
+  }
   .status-dot.active {
     background: var(--green);
     box-shadow: 0 0 8px rgba(52, 211, 153, 0.5);
@@ -667,7 +672,8 @@ async function startSession() {
 
     socket.emit('start_voice_agent', { browserAudio: true });
     isRunning = true;
-    setStatus('listening');
+    hotwordState = 'listening';
+    setStatus('ambient');
   } catch (err) {
     console.error('Mic error:', err);
     alert('Microphone access required');
@@ -734,15 +740,31 @@ socket.on('conversation_update', (msg) => {
   container.appendChild(div);
   container.scrollTop = container.scrollHeight;
 
-  // Update visualizer
+  // Update visualizer based on hotword state
   if (msg.role === 'assistant') setStatus('speaking');
-  else setStatus('listening');
+  else if (hotwordState === 'active') setStatus('listening');
+  else setStatus('ambient');
 });
 
 // ---------------------------------------------------------------------------
 // City state updates
 // ---------------------------------------------------------------------------
 socket.on('city_state_update', (state) => { renderDashboard(state); });
+
+// Hotword state: ambient (waiting for hotword) vs active (in conversation)
+socket.on('hotword_state', (data) => {
+  hotwordState = data.state;
+  if (data.state === 'active') {
+    setStatus('listening');
+  } else {
+    setStatus('ambient');
+  }
+});
+
+// Agent ready (Deepgram session established) -> go to ambient
+socket.on('agent_ready', () => {
+  setStatus('ambient');
+});
 
 // Also poll on load
 fetch('/api/city-state').then(r => r.json()).then(renderDashboard);
@@ -810,14 +832,20 @@ function renderDashboard(s) {
 // ---------------------------------------------------------------------------
 // Status indicator
 // ---------------------------------------------------------------------------
+let hotwordState = 'listening'; // 'listening' (ambient) or 'active' (in conversation)
+
 function setStatus(state) {
   const dot = document.getElementById('statusDot');
   const label = document.getElementById('statusLabel');
   dot.className = 'status-dot';
 
-  if (state === 'listening') {
+  if (state === 'ambient') {
+    dot.classList.add('ambient');
+    label.textContent = 'Ambient';
+    animateViz(false);
+  } else if (state === 'listening') {
     dot.classList.add('listening');
-    label.textContent = 'Listening';
+    label.textContent = 'Active';
     animateViz(true);
   } else if (state === 'speaking') {
     dot.classList.add('active');
