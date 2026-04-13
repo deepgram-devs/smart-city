@@ -22,7 +22,7 @@ from common.agent_functions import (
 )
 from saga.functions import SAGA_FUNCTION_MAP, get_random_filler
 from saga.definitions import SAGA_FUNCTION_DEFINITIONS
-from saga.mock_data import get_city_state, reset_city_state, CITY_STATE
+from saga.mock_data import get_city_state, reset_city_state
 
 load_dotenv()
 
@@ -126,6 +126,7 @@ class VoiceAgent:
         self.ws = None
         self.is_running = False
         self.loop = None
+        self._greeting_done = False  # True after first user utterance; gates output suppression
 
     def set_loop(self, loop):
         self.loop = loop
@@ -190,9 +191,15 @@ class VoiceAgent:
                             self.speaker.stop()
 
                         elif msg_type == "ConversationText":
-                            socketio.emit("conversation_update", msg)
-                            if msg.get("role") == "user":
+                            role = msg.get("role")
+                            if role == "user":
+                                self._greeting_done = True
                                 last_user_transcript = msg.get("content", "")
+                            # Suppress assistant text when hotword not active (after greeting)
+                            if role == "assistant" and self._greeting_done and not is_conversation_active():
+                                logger.info(f"Suppressed: {msg.get('content', '')[:60]}")
+                                continue
+                            socketio.emit("conversation_update", msg)
 
                         elif msg_type == "FunctionCallRequest":
                             functions = msg.get("functions", [])
@@ -231,7 +238,10 @@ class VoiceAgent:
 
                             # Emit hotword state changes to frontend
                             if fn_name == "check_hotword":
-                                await self._handle_hotword_activation(result)
+                                if result.get("active"):
+                                    await self._handle_hotword_activation(result)
+                                else:
+                                    self.speaker.stop()  # Kill any leaked audio
                             elif fn_name == "close_hotword_session":
                                 socketio.emit("hotword_state", {"state": "listening"})
 
@@ -261,6 +271,9 @@ class VoiceAgent:
                             logger.info(f"Deepgram: {msg_type}")
 
                     elif isinstance(message, bytes):
+                        # Suppress audio when hotword not active (after greeting)
+                        if self._greeting_done and not is_conversation_active():
+                            continue
                         await self.speaker.play(message)
 
         except websockets.exceptions.ConnectionClosed as e:
@@ -363,6 +376,27 @@ def api_reset():
     data = reset_city_state()
     socketio.emit("city_state_update", data)
     return jsonify({"status": "reset"})
+
+
+@app.route("/api/inject", methods=["POST"])
+def api_inject():
+    """Inject a user message into the voice agent session (for testing)."""
+    text = request.json.get("text", "")
+    if not text:
+        return jsonify({"error": "text required"}), 400
+    if not voice_agent or not voice_agent.is_running or not voice_agent.ws:
+        return jsonify({"error": "no active session"}), 400
+    try:
+        asyncio.run_coroutine_threadsafe(
+            voice_agent.ws.send(json.dumps({
+                "type": "InjectUserMessage",
+                "message": text,
+            })),
+            voice_agent.loop,
+        )
+        return jsonify({"status": "injected", "text": text})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 # ---------------------------------------------------------------------------
