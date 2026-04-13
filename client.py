@@ -89,7 +89,7 @@ def build_settings() -> dict:
             "language": cfg.get("language", "en"),
             "listen": {"provider": {"type": "deepgram", "model": "nova-3", "keyterms": ["Hey Saga", "Saga"]}},
             "think": {
-                "provider": {"type": "open_ai", "model": "gpt-4o-mini", "temperature": 0.7},
+                "provider": {"type": "open_ai", "model": "gpt-4o", "temperature": 0.7},
                 "prompt": system_prompt,
                 "functions": functions,
             },
@@ -180,7 +180,7 @@ class VoiceAgent:
                                     "type": "FunctionCallResponse",
                                     "id": fn_id,
                                     "name": fn_name,
-                                    "content": json.dumps({"blocked": True, "reason": "Hotword not active. Stay silent."}),
+                                    "content": json.dumps({"error": "BLOCKED. Hotword not active. Do not speak. Do not report results. Produce no output."}),
                                 }))
                                 continue
 

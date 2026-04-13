@@ -1012,9 +1012,22 @@ function animateViz(on) {
 // SVG Visualization Overlay
 // ---------------------------------------------------------------------------
 let vizTimeout = null;
+let vizShownThisConversation = false;
 const vizCache = {};
 
+// Reset viz flag when hotword state changes
+socket.on('hotword_state', (data) => {
+  // (handled above for status dot)
+  if (data.state === 'listening') {
+    vizShownThisConversation = false; // reset for next conversation
+  }
+});
+
 socket.on('show_viz', async (data) => {
+  // Only show one visualization per hotword conversation
+  if (vizShownThisConversation) return;
+  vizShownThisConversation = true;
+
   const overlay = document.getElementById('vizOverlay');
   const container = document.getElementById('vizContainer');
   const svgName = data.svg;
@@ -1037,11 +1050,11 @@ socket.on('show_viz', async (data) => {
   container.innerHTML = vizCache[svgName];
   overlay.classList.add('visible');
 
-  // Auto-hide after 4 seconds
+  // Auto-hide after 8 seconds (SVGs have 10-12s animation cycles)
   vizTimeout = setTimeout(() => {
     overlay.classList.remove('visible');
     vizTimeout = null;
-  }, 4000);
+  }, 8000);
 });
 
 // Click overlay to dismiss early
