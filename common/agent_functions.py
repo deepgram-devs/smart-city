@@ -1,7 +1,13 @@
 """Hotword detection for SAGA. Adapted from flask-agent-function-calling-demo."""
 
+import random
 import re
 import time
+
+_ACTIVATION_FILLERS = [
+    "One moment.", "Pulling that up now.", "Running the query.",
+    "On it.", "Right away.", "Stand by.", "Processing.",
+]
 
 
 # ---------------------------------------------------------------------------
@@ -44,7 +50,12 @@ async def check_hotword(params):
     if _conversation_active:
         if now - _last_activity_time < CONVERSATION_TIMEOUT:
             _last_activity_time = now
-            return {"active": True, "freshly_activated": False, "query": transcript}
+            return {
+                "active": True,
+                "freshly_activated": False,
+                "query": transcript,
+                "instruction": "Call ALL relevant functions for this query, then respond with the combined results.",
+            }
         else:
             _conversation_active = False
 
@@ -56,7 +67,14 @@ async def check_hotword(params):
         query = transcript[match.end():].strip().lstrip('.,!? ')
         _conversation_active = True
         _last_activity_time = now
-        return {"active": True, "freshly_activated": True, "query": query or transcript}
+        filler = random.choice(_ACTIVATION_FILLERS)
+        return {
+            "active": True,
+            "freshly_activated": True,
+            "query": query or transcript,
+            "filler": filler,
+            "instruction": f"First say ONLY '{filler}' then immediately call ALL relevant functions for the query. Do not say anything else before calling the functions.",
+        }
     else:
         return {
             "active": False,

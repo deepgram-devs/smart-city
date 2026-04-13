@@ -164,7 +164,7 @@ class VoiceAgent:
             return
         socketio.emit("hotword_state", {"state": "active"})
         if result.get("freshly_activated"):
-            filler = get_random_filler()
+            filler = result.get("filler") or get_random_filler()
             logger.info(f"Injecting filler: {filler}")
             await self.ws.send(json.dumps({
                 "type": "InjectAgentMessage",
@@ -200,12 +200,14 @@ class VoiceAgent:
 
                         elif msg_type == "ConversationText":
                             role = msg.get("role")
+                            content = msg.get("content", "")
+                            logger.info(f"[{role}] {content[:150]}")
                             if role == "user":
                                 self._greeting_done = True
-                                last_user_transcript = msg.get("content", "")
+                                last_user_transcript = content
                             # Suppress assistant text when hotword not active (after greeting)
                             if role == "assistant" and self._greeting_done and not is_conversation_active():
-                                logger.info(f"Suppressed: {msg.get('content', '')[:60]}")
+                                logger.info(f"Suppressed: {content[:60]}")
                                 continue
                             socketio.emit("conversation_update", msg)
 
@@ -258,12 +260,14 @@ class VoiceAgent:
                             if viz:
                                 socketio.emit("show_viz", {"svg": viz})
 
-                            await self.ws.send(json.dumps({
+                            response_payload = {
                                 "type": "FunctionCallResponse",
                                 "id": fn_id,
                                 "name": fn_name,
                                 "content": json.dumps(result),
-                            }))
+                            }
+                            logger.info(f"Sending FunctionCallResponse: {fn_name} -> {str(result)[:200]}")
+                            await self.ws.send(json.dumps(response_payload))
 
                             # Push state update to frontend after any function call
                             socketio.emit("city_state_update", get_city_state())
@@ -276,7 +280,12 @@ class VoiceAgent:
                             logger.error(f"Deepgram error: {msg}")
 
                         else:
-                            logger.info(f"Deepgram: {msg_type}")
+                            # Verbose: log full message for investigation
+                            content = msg.get("content", "")
+                            if content:
+                                logger.info(f"Deepgram: {msg_type} | {str(content)[:200]}")
+                            else:
+                                logger.info(f"Deepgram: {msg_type}")
 
                     elif isinstance(message, bytes):
                         # Suppress audio when hotword not active (after greeting)
