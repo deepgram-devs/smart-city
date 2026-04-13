@@ -17,6 +17,7 @@ from common.agent_functions import (
     CHECK_HOTWORD_DEFINITION,
     CLOSE_HOTWORD_SESSION_DEFINITION,
     set_hotword,
+    is_conversation_active,
 )
 from saga.functions import SAGA_FUNCTION_MAP, agent_filler
 from saga.definitions import SAGA_FUNCTION_DEFINITIONS
@@ -168,6 +169,20 @@ class VoiceAgent:
                             params = json.loads(fn.get("arguments", "{}"))
 
                             logger.info(f"Function: {fn_name}({params})")
+
+                            # Server-side hotword gate: block all functions
+                            # except check_hotword/close_hotword_session when
+                            # conversation is not active
+                            HOTWORD_BYPASS = {"check_hotword", "close_hotword_session"}
+                            if fn_name not in HOTWORD_BYPASS and not is_conversation_active():
+                                logger.info(f"BLOCKED {fn_name}: hotword not active")
+                                await self.ws.send(json.dumps({
+                                    "type": "FunctionCallResponse",
+                                    "id": fn_id,
+                                    "name": fn_name,
+                                    "content": json.dumps({"blocked": True, "reason": "Hotword not active. Stay silent."}),
+                                }))
+                                continue
 
                             if fn_name == "agent_filler":
                                 # Special handling: speak filler immediately

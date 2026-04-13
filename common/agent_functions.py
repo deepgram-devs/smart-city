@@ -21,6 +21,11 @@ def set_hotword(hotword: str | None):
     _last_activity_time = 0.0
 
 
+def is_conversation_active() -> bool:
+    """Check if hotword conversation is currently active. Used by client.py to gate functions."""
+    return _conversation_active
+
+
 async def close_hotword_session(params):
     global _conversation_active
     _conversation_active = False
