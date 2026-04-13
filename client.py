@@ -71,10 +71,13 @@ def build_settings() -> dict:
             f"- If check_hotword returns {{\"active\": true}}: Respond naturally to the \"query\" field.\n"
             f"This rule applies to every single utterance, no exceptions.\n"
             f"Your greeting is spoken exactly ONCE when the session starts. NEVER repeat it.\n\n"
-            f"ENDING A HOTWORD CONVERSATION:\n"
-            f"When the user's request is fully resolved and they signal they are done "
-            f"(e.g. 'thanks', 'got it', 'okay', 'perfect', 'that is all', 'great'), "
-            f"call close_hotword_session, then give a brief closing remark and go silent."
+            f"ENDING A HOTWORD CONVERSATION (CRITICAL):\n"
+            f"You MUST call close_hotword_session immediately when ANY of these happen:\n"
+            f"- User says thanks, thank you, got it, okay, perfect, that's all, great, bye, stop listening, that's it, never mind\n"
+            f"- User's question has been fully answered and they acknowledge it\n"
+            f"- User explicitly asks you to stop\n"
+            f"Do NOT have a prolonged goodbye. Do NOT say 'If you need anything else'. "
+            f"Call close_hotword_session FIRST, then say at most 3 words like 'Standing by.' and produce no further output."
         )
         functions += [CHECK_HOTWORD_DEFINITION, CLOSE_HOTWORD_SESSION_DEFINITION]
 

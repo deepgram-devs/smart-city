@@ -62,10 +62,10 @@ async def check_hotword(params):
 CLOSE_HOTWORD_SESSION_DEFINITION = {
     "name": "close_hotword_session",
     "description": (
-        "Call this function when the conversation triggered by the hotword is complete. "
-        "Triggers when the user's question is fully answered and they indicate satisfaction "
-        "(e.g. 'thanks', 'got it', 'okay', 'that's all', 'perfect', 'great'). "
-        "After calling this, return to silent listening mode."
+        "IMMEDIATELY call this function when the user signals the conversation is done. "
+        "Triggers: 'thanks', 'thank you', 'got it', 'okay', 'perfect', 'that's all', 'great', "
+        "'bye', 'stop listening', 'that's it', 'never mind', or any acknowledgement after you answered their question. "
+        "Call this BEFORE your closing remark. After calling this, say at most 'Standing by.' and nothing more."
     ),
     "parameters": {"type": "object", "properties": {}},
 }
