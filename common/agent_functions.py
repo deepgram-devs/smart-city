@@ -47,21 +47,25 @@ async def check_hotword(params):
     if not hotword:
         return {"active": True, "query": transcript}
 
-    if _conversation_active:
-        if now - _last_activity_time < CONVERSATION_TIMEOUT:
-            _last_activity_time = now
-            return {
-                "active": True,
-                "freshly_activated": False,
-                "query": transcript,
-                "instruction": "Call ALL relevant functions for this query, then respond with the combined results.",
-            }
-        else:
-            _conversation_active = False
-
     words = hotword.split()
     pattern = r'\b' + r'[\s,\.!?\'\"]*'.join(re.escape(w) for w in words) + r'\b'
     match = re.search(pattern, transcript, re.IGNORECASE)
+
+    if _conversation_active:
+        if now - _last_activity_time < CONVERSATION_TIMEOUT:
+            _last_activity_time = now
+            # If they said the hotword again, treat as fresh activation
+            # so the LLM gets the filler instruction that triggers function calls
+            if not match:
+                return {
+                    "active": True,
+                    "freshly_activated": False,
+                    "query": transcript,
+                    "instruction": "Call ALL relevant functions for this query, then respond with the combined results.",
+                }
+            # Fall through to fresh activation below
+        else:
+            _conversation_active = False
 
     if match:
         query = transcript[match.end():].strip().lstrip('.,!? ')
