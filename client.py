@@ -67,9 +67,9 @@ def build_settings() -> dict:
             f"\n\nHOTWORD ACTIVATION (CRITICAL RULE):\n"
             f"You are in hotword mode. The activation hotword is \"{hotword}\".\n"
             f"You MUST call check_hotword with the exact transcript before responding to ANYTHING the user says.\n"
-            f"- If check_hotword returns {{\"active\": false}}: Do not speak. Stay completely silent.\n"
+            f"- If check_hotword returns {{\"active\": false}}: You MUST produce absolutely NO output. No words, no acknowledgement, no status updates, no 'silent mode' messages. Complete and total silence. Empty response.\n"
             f"- If check_hotword returns {{\"active\": true}}: Respond naturally to the \"query\" field.\n"
-            f"This rule applies to every single utterance, no exceptions.\n\n"
+            f"This rule applies to every single utterance, no exceptions. NEVER say 'silent mode' or announce that you are being silent.\n\n"
             f"ENDING A HOTWORD CONVERSATION:\n"
             f"When the user's request is fully resolved and they signal they are done "
             f"(e.g. 'thanks', 'got it', 'okay', 'perfect', 'that is all', 'great'), "
@@ -82,7 +82,7 @@ def build_settings() -> dict:
         "audio": AUDIO_SETTINGS,
         "agent": {
             "language": cfg.get("language", "en"),
-            "listen": {"provider": {"type": "deepgram", "model": "nova-3"}},
+            "listen": {"provider": {"type": "deepgram", "model": "nova-3", "keyterms": ["Hey Saga", "Saga"]}},
             "think": {
                 "provider": {"type": "open_ai", "model": "gpt-4o-mini", "temperature": 0.7},
                 "prompt": system_prompt,
