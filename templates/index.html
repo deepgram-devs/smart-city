@@ -586,6 +586,10 @@
           <span class="dash-badge" id="floodBadge">Open</span>
         </div>
         <div class="dash-row">
+          <span class="dash-label">Seawall</span>
+          <span class="dash-detail">12 gates</span>
+        </div>
+        <div class="dash-row">
           <span class="dash-label">Status</span>
           <span class="dash-detail" id="floodStatus">Open</span>
         </div>
@@ -595,15 +599,43 @@
     <div class="dash-section" id="residentSection">
       <div class="dash-card">
         <div class="dash-card-header">
-          <span class="dash-card-title">Resident</span>
+          <span class="dash-card-title" id="resName">Mr. Donovan</span>
         </div>
         <div class="dash-row">
+          <span class="dash-label" id="resUnit">Tower A, Unit 4201</span>
+        </div>
+        <div class="dash-row" style="margin-top:6px">
           <span class="dash-label">Climate</span>
           <span class="dash-detail" id="resClimate">24&deg;C</span>
         </div>
         <div class="dash-row">
           <span class="dash-label">Energy credits</span>
           <span class="dash-detail" id="resCredits">$847.50</span>
+        </div>
+        <div class="dash-row">
+          <span class="dash-label">Payment</span>
+          <span class="dash-detail">Face-ID</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="dash-section" id="emergencySection">
+      <div class="dash-card">
+        <div class="dash-card-header">
+          <span class="dash-card-title">Emergency</span>
+          <span class="dash-badge" id="emergBadge">Nominal</span>
+        </div>
+        <div class="dash-row">
+          <span class="dash-label">Backup power</span>
+          <span class="dash-detail" id="emergPower">100%</span>
+        </div>
+        <div class="dash-row">
+          <span class="dash-label">Data center</span>
+          <span class="dash-detail" id="emergDC">Nominal</span>
+        </div>
+        <div class="dash-row">
+          <span class="dash-label">Alerts sent</span>
+          <span class="dash-detail" id="emergAlerts">0</span>
         </div>
       </div>
     </div>
@@ -884,9 +916,24 @@ function renderDashboard(s) {
   if (changed.has('flood')) pulseCard('floodSection', true);
 
   // Resident
+  document.getElementById('resName').textContent = s.resident.name;
+  document.getElementById('resUnit').textContent = s.resident.unit;
   document.getElementById('resClimate').innerHTML = `${s.resident.climate.target_temp_c}&deg;C`;
   document.getElementById('resCredits').textContent = `$${s.resident.energy_credits.toFixed(2)}`;
   if (changed.has('resident')) pulseCard('residentSection');
+
+  // Emergency
+  const emerg = s.emergency;
+  document.getElementById('emergPower').textContent = emerg.backup_power_pct + '%';
+  document.getElementById('emergDC').textContent = emerg.data_center_status;
+  document.getElementById('emergAlerts').textContent = emerg.resident_alert_count.toLocaleString();
+  const eb = document.getElementById('emergBadge');
+  if (emerg.resident_alert_count > 0) {
+    eb.textContent = 'Active'; eb.className = 'dash-badge alert';
+  } else {
+    eb.textContent = 'Nominal'; eb.className = 'dash-badge';
+  }
+  if (changed.has('emergency')) pulseCard('emergencySection', true);
 
   // Activity feed
   const feed = document.getElementById('activityFeed');
@@ -908,7 +955,7 @@ function detectChanges(prev, next) {
   if (JSON.stringify(prev.weather) !== JSON.stringify(next.weather)) changed.add('weather');
   if (JSON.stringify(prev.flood_gates) !== JSON.stringify(next.flood_gates)) changed.add('flood');
   if (JSON.stringify(prev.resident) !== JSON.stringify(next.resident)) changed.add('resident');
-  if (JSON.stringify(prev.emergency) !== JSON.stringify(next.emergency)) changed.add('weather');
+  if (JSON.stringify(prev.emergency) !== JSON.stringify(next.emergency)) changed.add('emergency');
   return changed;
 }
 
