@@ -36,7 +36,7 @@ AUDIO_SETTINGS = {
 
 # Flask setup
 app = Flask(__name__, static_folder="./static", static_url_path="/static")
-socketio = SocketIO(app, cors_allowed_origins="*", allow_upgrades=False)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -114,22 +114,29 @@ class VoiceAgent:
         if not api_key:
             logger.error("DEEPGRAM_API_KEY not set")
             return False
+        logger.info(f"Connecting to Deepgram Voice Agent API...")
         try:
             self.ws = await websockets.connect(
                 VOICE_AGENT_URL,
                 extra_headers={"Authorization": f"Token {api_key}"},
             )
-            await self.ws.send(json.dumps(build_settings()))
+            settings = build_settings()
+            logger.info(f"Connected. Sending settings ({len(settings['agent']['think']['functions'])} functions)")
+            await self.ws.send(json.dumps(settings))
             return True
         except Exception as e:
-            logger.error(f"Failed to connect: {e}")
+            logger.error(f"Failed to connect to Deepgram: {e}")
             return False
 
     async def sender(self):
         try:
+            first_chunk = True
             while self.is_running:
                 data = await self.mic_audio_queue.get()
                 if self.ws and data:
+                    if first_chunk:
+                        logger.info(f"Sending first audio chunk to Deepgram: {len(data)} bytes")
+                        first_chunk = False
                     await self.ws.send(data)
         except Exception as e:
             logger.error(f"Sender error: {e}")
@@ -174,11 +181,20 @@ class VoiceAgent:
                             socketio.emit("city_state_update", get_city_state())
 
                         elif msg_type == "Welcome":
-                            logger.info(f"Session: {msg.get('session_id')}")
+                            logger.info(f"Deepgram session established: {msg.get('session_id')}")
+                            socketio.emit("agent_ready")
+
+                        elif msg_type == "Error":
+                            logger.error(f"Deepgram error: {msg}")
+
+                        else:
+                            logger.info(f"Deepgram: {msg_type}")
 
                     elif isinstance(message, bytes):
                         await self.speaker.play(message)
 
+        except websockets.exceptions.ConnectionClosed as e:
+            logger.warning(f"Deepgram WebSocket closed: {e}")
         except Exception as e:
             logger.error(f"Receiver error: {e}")
 
@@ -309,10 +325,22 @@ def _run_agent():
         logger.error(f"Agent thread error: {e}")
 
 
+@socketio.on("connect")
+def handle_connect():
+    logger.info("Browser connected via SocketIO")
+
+
+@socketio.on("disconnect")
+def handle_disconnect():
+    logger.info("Browser disconnected")
+
+
 @socketio.on("start_voice_agent")
 def handle_start(data=None):
     global voice_agent, voice_agent_thread
+    logger.info(f"start_voice_agent received, data={data}")
     if voice_agent is not None:
+        logger.warning("Voice agent already running, ignoring start")
         return
 
     reset_city_state()
@@ -326,6 +354,7 @@ def handle_start(data=None):
 @socketio.on("stop_voice_agent")
 def handle_stop():
     global voice_agent
+    logger.info("stop_voice_agent received")
     if not voice_agent:
         return
     voice_agent.is_running = False
