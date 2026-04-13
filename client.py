@@ -383,7 +383,11 @@ def api_start():
     """Start the voice agent session (for testing without browser)."""
     global voice_agent, voice_agent_thread
     if voice_agent is not None:
-        return jsonify({"error": "already running"}), 400
+        if not voice_agent.is_running or not voice_agent.ws or voice_agent.ws.closed:
+            logger.info("Stale voice agent detected via API, cleaning up before restart")
+            handle_stop()
+        else:
+            return jsonify({"error": "already running"}), 400
     reset_city_state()
     voice_agent = VoiceAgent()
     voice_agent_thread = threading.Thread(target=_run_agent, daemon=True)
@@ -460,6 +464,7 @@ def handle_connect():
 @socketio.on("disconnect")
 def handle_disconnect():
     logger.info("Browser disconnected")
+    handle_stop()
 
 
 @socketio.on("start_voice_agent")
@@ -467,8 +472,13 @@ def handle_start(data=None):
     global voice_agent, voice_agent_thread
     logger.info(f"start_voice_agent received, data={data}")
     if voice_agent is not None:
-        logger.warning("Voice agent already running, ignoring start")
-        return
+        # If the old agent's WS is dead, clean it up instead of rejecting
+        if not voice_agent.is_running or not voice_agent.ws or voice_agent.ws.closed:
+            logger.info("Stale voice agent detected, cleaning up before restart")
+            handle_stop()
+        else:
+            logger.warning("Voice agent already running, ignoring start")
+            return
 
     reset_city_state()
     socketio.emit("city_state_update", get_city_state())
