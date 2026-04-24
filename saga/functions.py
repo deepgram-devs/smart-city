@@ -242,6 +242,225 @@ async def send_notification(params):
 
 
 # ---------------------------------------------------------------------------
+# Scenario 5: Board Prep (Executive Assistant)
+# ---------------------------------------------------------------------------
+
+async def draft_narrative(params):
+    """Draft speaker notes / narrative for a presentation."""
+    topic = params.get("topic", "Q1 financial results")
+    audience = params.get("audience", "Board of Directors")
+
+    talking_points = [
+        "Open with the 7.6% month-over-month lift on Smart Grid revenue to $1.84B, framed as the BPO expansion dividend.",
+        "Connect the 15% load spike in Smart BPO to the solar arbitrage save from Convention Center — margin held at +8%.",
+        "Use the 14.2% YoY growth to anchor the ask: accelerate Phase 2 tidal capacity to protect 2035 target.",
+        "Close on net-zero progress at 87% and the Harbour Bridge toll pilot extension through Q3 2026.",
+        "Leave 5 minutes for Donny's capex ask — $220M for the tidal expansion, payback under 6 years.",
+    ]
+
+    log_action(f"Narrative drafted: {topic} for {audience}")
+    return {
+        "topic": topic,
+        "audience": audience,
+        "opening_hook": talking_points[0],
+        "key_driver": talking_points[1],
+        "growth_anchor": talking_points[2],
+        "closing": talking_points[3],
+        "ask_cue": talking_points[4],
+        "tone": "confident, data-led, 12 minutes including Q&A",
+    }
+
+
+async def request_stakeholder_input(params):
+    """Email stakeholders requesting inputs on a deliverable."""
+    deliverable = params.get("deliverable", "Q1 board deck")
+    recipients = params.get("recipients", "Donny Reyes, Jordan Kwan, Chris Peralta")
+    deadline = params.get("deadline", "3:00 PM today")
+
+    recipient_list = [r.strip() for r in recipients.split(",") if r.strip()]
+
+    log_action(f"Stakeholder input requested from {len(recipient_list)} people: {deliverable}")
+    return {
+        "deliverable": deliverable,
+        "recipients": recipient_list,
+        "recipient_count": len(recipient_list),
+        "deadline": deadline,
+        "channel": "Email + SAGA wearable nudge",
+        "status": "sent",
+    }
+
+
+async def book_meeting_room(params):
+    """Book a meeting room and send calendar invites."""
+    room = params.get("room", "Tower A Boardroom")
+    time = params.get("time", "4:00 PM today")
+    attendees = params.get("attendees", "Board of Directors")
+    purpose = params.get("purpose", "Q1 Board Review")
+
+    log_action(f"Meeting room booked: {room} at {time}, invites sent to {attendees}")
+    return {
+        "room": room,
+        "floor": "Tower A, Level 16",
+        "capacity": 20,
+        "time": time,
+        "attendees": attendees,
+        "attendee_count": 9,
+        "purpose": purpose,
+        "calendar_invites": "sent",
+        "av_confirmed": "4K wall, SAGA cast link ready",
+        "status": "confirmed",
+    }
+
+
+async def order_catering(params):
+    """Order catering for a group meeting, paid via Face-ID."""
+    items = params.get("items", "espresso bar and pastries")
+    headcount = params.get("headcount", 8)
+    location = params.get("location", "Tower A Boardroom")
+
+    per_head = 30
+    total = round(headcount * per_head, 2)
+
+    log_action(f"Catering ordered: {items} for {headcount} at {location}, ${total}")
+    return {
+        "items": items,
+        "headcount": headcount,
+        "location": location,
+        "vendor": "Lobby Cafe + Phase 1 Patisserie",
+        "total_usd": total,
+        "formatted_total_usd": f"${total:.2f}",
+        "payment_method": "Face-ID (charged to Tower A Unit 4201)",
+        "ready_by": "15 minutes before meeting start",
+        "status": "confirmed",
+    }
+
+
+async def render_chart(params):
+    """Render a chart widget. LLM provides the chart type and data."""
+    title = params.get("title", "Chart")
+    chart_type = params.get("chart_type", "bar")
+    labels = params.get("labels", []) or []
+    values = params.get("values", []) or []
+    unit = params.get("unit", "")
+    color = params.get("color", "blue")
+
+    if not isinstance(labels, list):
+        labels = [str(labels)]
+    if not isinstance(values, list):
+        values = [values]
+
+    log_action(f"Chart rendered: {title} ({chart_type}, {len(values)} points)")
+    return {
+        "title": title,
+        "chart_type": chart_type,
+        "labels": labels,
+        "values": values,
+        "unit": unit,
+        "color": color,
+    }
+
+
+async def generate_slide_preview(params):
+    """Return a 5-slide preview grid for a deck. LLM provides the slide content."""
+    topic = params.get("topic", "Board Review")
+    slides = params.get("slides", []) or []
+
+    if not slides:
+        slides = [
+            {"title": "Q1 2026 Board Review", "hero_stat": "$5.13B", "caption": "Smart Grid revenue, +14.2% YoY"},
+            {"title": "The BPO Dividend", "hero_stat": "+15%", "caption": "Load spike mitigated via Convention Center solar arbitrage"},
+            {"title": "Energy Arbitrage", "hero_stat": "+8%", "caption": "Margin held through storage redistribution"},
+            {"title": "Net-Zero Progress", "hero_stat": "87%", "caption": "On track for the 2040 target"},
+            {"title": "Phase 2 Ask", "hero_stat": "$220M", "caption": "Tidal capex, 6-year payback, unlocks $22.4B by 2035"},
+        ]
+
+    log_action(f"Slide preview generated: {topic} ({len(slides)} slides)")
+    return {
+        "topic": topic,
+        "slide_count": len(slides),
+        "slides": slides,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Scenario 6: Tourist / Visitor Concierge
+# ---------------------------------------------------------------------------
+
+async def plan_day_itinerary(params):
+    """Plan a weather-aware day itinerary for a Harbour City visitor."""
+    guest_name = params.get("guest_name", "").strip()
+    interests = params.get("interests", "food, walking, wellness, culture").strip()
+
+    weather = CITY_STATE["weather"]["current"]
+    weather_note = (
+        f"{weather['condition']}, {weather['temp_c']}C, "
+        f"winds {weather['wind_kph']} kph — good for outdoor stretches through mid-afternoon"
+    )
+
+    itinerary = {
+        "08:00 - Breakfast": (
+            "Sogo Harbour Hotel — 50% off guest rate on the Filipino breakfast; "
+            "their longganisa (sweet garlic sausage) is the best on the island"
+        ),
+        "09:30 - Harbour walk": (
+            "2.1 km seawall promenade from Sogo to the Marina District — walks off breakfast, ~2,800 steps"
+        ),
+        "11:00 - Wellness event": (
+            "Convention Center is hosting ASEAN Wellness Expo today — breathwork workshop at 11:15, free entry on Super App"
+        ),
+        "13:00 - Lunch": (
+            "Skyline 47 rooftop, Harbour City Tower — Manila Bay views, kare-kare set menu, ~PHP 1,450"
+        ),
+        "14:30 - Transfer": (
+            "Classic jeepney ride from Marina Plaza to Harbour City Beach Club — 12 minutes, PHP 50, local color"
+        ),
+        "15:00 - Beach Club": (
+            "Harbour City Beach Club — swim, cabana, lagoon pool, day pass covered by visitor Super App wristband"
+        ),
+        "18:30 - Sunset drinks": (
+            "Jollibee Sky Deck, Phase 1 Core — yes, the Jollibee has a sunset rooftop bar; chickenjoy sliders + calamansi spritz"
+        ),
+        "20:00 - Dinner": (
+            "Stay at Jollibee Sky Deck for the Filipino-fusion tasting menu; sunset hits Manila Bay at 19:47 tonight"
+        ),
+    }
+
+    log_action(f"Day itinerary planned{' for ' + guest_name if guest_name else ''}")
+    return {
+        "guest": guest_name or "visitor",
+        "weather_today": weather_note,
+        "interests": interests,
+        "total_stops": len(itinerary),
+        "est_steps": "6,400",
+        "est_cost_php": "4,200",
+        **itinerary,
+        "next_action": "Say 'book it' and I will confirm reservations, the jeepney pass, and the beach club wristband",
+    }
+
+
+async def book_itinerary(params):
+    """Confirm bookings for all items in the most recent itinerary."""
+    itinerary_id = params.get("itinerary_id", "current")
+
+    log_action(f"Itinerary bookings confirmed ({itinerary_id})")
+    return {
+        "itinerary_id": itinerary_id,
+        "bookings": {
+            "Sogo Harbour Hotel breakfast": "confirmed, 50% rate applied",
+            "Convention Center wellness pass": "reserved, QR on Super App",
+            "Skyline 47 lunch (2 pax)": "13:00 window seat, bay view",
+            "Jeepney pass": "loaded on visitor wristband",
+            "Harbour City Beach Club day pass": "cabana 7 reserved 15:00-18:00",
+            "Jollibee Sky Deck sunset + dinner": "18:30, terrace 2-top",
+        },
+        "total_charged_php": 4_200,
+        "payment_method": "Face-ID on visitor wristband",
+        "confirmation_sent_to": "guest Super App + email",
+        "status": "all confirmed",
+    }
+
+
+# ---------------------------------------------------------------------------
 # Scenario 4: Proactive Guardian
 # ---------------------------------------------------------------------------
 
@@ -394,6 +613,16 @@ SAGA_FUNCTION_MAP = {
     "create_projection": create_projection,
     "generate_deck": generate_deck,
     "send_notification": send_notification,
+    # Scenario 5
+    "draft_narrative": draft_narrative,
+    "request_stakeholder_input": request_stakeholder_input,
+    "book_meeting_room": book_meeting_room,
+    "order_catering": order_catering,
+    "render_chart": render_chart,
+    "generate_slide_preview": generate_slide_preview,
+    # Scenario 6
+    "plan_day_itinerary": plan_day_itinerary,
+    "book_itinerary": book_itinerary,
     # Scenario 4
     "get_weather_alert": get_weather_alert,
     "activate_flood_gates": activate_flood_gates,

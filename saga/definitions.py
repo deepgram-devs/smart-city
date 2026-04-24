@@ -176,6 +176,189 @@ SAGA_FUNCTION_DEFINITIONS = [
             "required": ["recipient", "content"],
         },
     },
+    # ----- Scenario 5: Board Prep (Executive Assistant) -----
+    {
+        "name": "draft_narrative",
+        "description": "Draft speaker notes / narrative talking points for a presentation. Use when the user asks for talking points, narrative, what to say, or recommendations for a deck.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "topic": {
+                    "type": "string",
+                    "description": "Narrative topic (e.g. 'Q1 financial results', 'board review', 'investor pitch')",
+                },
+                "audience": {
+                    "type": "string",
+                    "description": "Audience (e.g. 'Board of Directors', 'Investors', 'Executive Team')",
+                },
+            },
+        },
+    },
+    {
+        "name": "request_stakeholder_input",
+        "description": "Email a group of stakeholders to request input or review on a deliverable. Use when the user wants to gather inputs, send out for review, or ping stakeholders before a meeting.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "deliverable": {
+                    "type": "string",
+                    "description": "What stakeholders are being asked to review (e.g. 'Q1 board deck', 'sustainability projections')",
+                },
+                "recipients": {
+                    "type": "string",
+                    "description": "Comma-separated stakeholder names (default: CFO Donny Reyes, Sustainability VP Jordan Kwan, Partnerships Head Chris Peralta)",
+                },
+                "deadline": {
+                    "type": "string",
+                    "description": "When inputs are needed by (e.g. '3 PM today', 'end of day')",
+                },
+            },
+            "required": ["deliverable"],
+        },
+    },
+    {
+        "name": "book_meeting_room",
+        "description": "Book a meeting room and send calendar invites to attendees. Use when the user asks to book a room, schedule a meeting, or set up a board meeting.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "room": {
+                    "type": "string",
+                    "description": "Room name (e.g. 'Tower A Boardroom', 'Convention Center Summit Hall')",
+                },
+                "time": {
+                    "type": "string",
+                    "description": "Meeting time (e.g. '4 PM today', 'tomorrow 10 AM')",
+                },
+                "attendees": {
+                    "type": "string",
+                    "description": "Comma-separated attendee names or a group (e.g. 'Board of Directors', 'exec team')",
+                },
+                "purpose": {
+                    "type": "string",
+                    "description": "Short meeting subject for the calendar invite",
+                },
+            },
+        },
+    },
+    {
+        "name": "order_catering",
+        "description": "Order catering (coffee, pastries, lunch) for a group meeting, paid via Face-ID. Use when the user asks to order coffee/food for a meeting or group.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "string",
+                    "description": "What to order (e.g. 'espresso bar and pastries', 'sandwich platters')",
+                },
+                "headcount": {
+                    "type": "number",
+                    "description": "Number of attendees (default: 8)",
+                },
+                "location": {
+                    "type": "string",
+                    "description": "Delivery location (default: Tower A Boardroom)",
+                },
+            },
+            "required": ["items"],
+        },
+    },
+    {
+        "name": "render_chart",
+        "description": "Render a data visualization as a dashboard widget. Use when presenting numeric data that benefits from a visual — revenue trends, energy mix, projections. Call MULTIPLE times with different titles to show multiple charts side by side. Each unique title creates a new widget; reusing a title updates the existing chart.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "description": "Chart title (unique per chart, e.g. 'Revenue Trend', 'Revenue Mix')",
+                },
+                "chart_type": {
+                    "type": "string",
+                    "enum": ["bar", "line", "donut", "sparkline"],
+                    "description": "Chart kind. bar=categories, line=trend over time, donut=share of whole, sparkline=compact trend",
+                },
+                "labels": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Category labels (e.g. ['Q2 2025','Q3 2025','Q4 2025','Q1 2026'])",
+                },
+                "values": {
+                    "type": "array",
+                    "items": {"type": "number"},
+                    "description": "Numeric values matching labels order",
+                },
+                "unit": {
+                    "type": "string",
+                    "description": "Unit suffix for tooltips (e.g. '$B', 'MW', '%')",
+                },
+                "color": {
+                    "type": "string",
+                    "enum": ["blue", "green", "amber", "red"],
+                    "description": "Primary accent color",
+                },
+            },
+            "required": ["title", "chart_type", "labels", "values"],
+        },
+    },
+    {
+        "name": "generate_slide_preview",
+        "description": "Show a 5-slide visual preview grid of a generated presentation — each card has a title, hero statistic, and caption. Call this AFTER generate_deck to give the user a glanceable view of what's in the deck.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "topic": {
+                    "type": "string",
+                    "description": "Deck topic (e.g. 'Q1 2026 Board Review')",
+                },
+                "slides": {
+                    "type": "array",
+                    "description": "Exactly 5 slide objects in presentation order",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "title": {"type": "string", "description": "Slide title (short)"},
+                            "hero_stat": {"type": "string", "description": "Headline number (e.g. '$5.13B', '+14.2%', '87%')"},
+                            "caption": {"type": "string", "description": "1-line caption explaining the stat"},
+                        },
+                        "required": ["title", "hero_stat", "caption"],
+                    },
+                },
+            },
+            "required": ["slides"],
+        },
+    },
+    # ----- Scenario 6: Tourist / Visitor Concierge -----
+    {
+        "name": "plan_day_itinerary",
+        "description": "Plan a full day tourist itinerary for Harbour City, weather-aware, with breakfast / activities / lunch / dinner / sunset. Use when a visitor or tourist asks what to do today, or asks for an itinerary / day plan.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "guest_name": {
+                    "type": "string",
+                    "description": "Visitor name if known (optional)",
+                },
+                "interests": {
+                    "type": "string",
+                    "description": "Comma-separated interests (e.g. 'food, wellness, walking, swimming'). Leave empty for a balanced plan.",
+                },
+            },
+        },
+    },
+    {
+        "name": "book_itinerary",
+        "description": "Confirm and book all items in a generated itinerary (reservations, tickets, transport). Use ONLY after the user confirms they want bookings made for the itinerary.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "itinerary_id": {
+                    "type": "string",
+                    "description": "Itinerary reference (default: the most recent one)",
+                }
+            },
+        },
+    },
     # ----- Scenario 4: Proactive Guardian -----
     {
         "name": "get_weather_alert",

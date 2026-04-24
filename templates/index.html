@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SAGA</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
@@ -195,6 +196,41 @@
     height: 1px; background: var(--border); margin: 4px 0;
   }
 
+  /* Chart widgets */
+  .chart-wrap {
+    position: relative; height: 160px; padding: 4px 2px 2px;
+  }
+  .chart-wrap canvas { max-width: 100%; }
+
+  /* Slide preview grid */
+  .slide-grid {
+    display: flex; flex-direction: column; gap: 6px; padding: 2px;
+  }
+  .slide-card {
+    background: rgba(255,255,255,0.025); border-radius: 8px;
+    padding: 10px 12px; border-left: 2px solid var(--accent);
+    transition: background 0.2s, transform 0.2s;
+  }
+  .slide-card:hover {
+    background: rgba(74,158,255,0.08);
+    transform: translateX(2px);
+  }
+  .slide-num {
+    font-size: 8px; font-weight: 600; color: var(--accent);
+    letter-spacing: 1.2px; margin-bottom: 3px;
+  }
+  .slide-card-title {
+    font-size: 11px; font-weight: 600; color: var(--text); margin-bottom: 5px;
+  }
+  .slide-hero {
+    font-size: 20px; font-weight: 300; color: var(--text);
+    font-family: 'JetBrains Mono', monospace; margin-bottom: 3px;
+    letter-spacing: -0.5px;
+  }
+  .slide-caption {
+    font-size: 10px; color: var(--text-dim); line-height: 1.45;
+  }
+
   /* ================================================================
      CENTER: Transcript
      ================================================================ */
@@ -330,8 +366,71 @@
 
   /* Responsive */
   @media (max-width: 1024px) {
-    .app { grid-template-columns: 1fr; grid-template-rows: 56px 1fr; }
-    .dashboard, .activity { display: none; }
+    html, body { height: 100dvh; overflow: hidden; }
+
+    .app {
+      grid-template-columns: 1fr;
+      grid-template-rows: 56px 1fr auto;
+      height: 100dvh;
+    }
+
+    /* Dashboard fills the main area */
+    .dashboard {
+      grid-row: 2; grid-column: 1;
+      display: block;
+    }
+
+    /* Transcript panel collapses to just the controls bar */
+    .conversation {
+      grid-row: 3; grid-column: 1;
+      min-height: 0;
+      border-top: 1px solid var(--border);
+    }
+    .conversation .messages,
+    .conversation .welcome-state,
+    .conversation .toast-container { display: none !important; }
+
+    /* Activity feed not shown on mobile */
+    .activity { display: none; }
+
+    /* Big, prominent Turn On button */
+    .controls {
+      padding: 14px 20px calc(18px + env(safe-area-inset-bottom, 0px));
+      background: var(--surface);
+      gap: 12px;
+    }
+    .controls .visualizer { display: none; }
+    .btn {
+      height: 56px;
+      padding: 0 32px;
+      font-size: 16px;
+      font-weight: 600;
+      border-radius: 28px;
+      min-width: 220px;
+      letter-spacing: 0.3px;
+    }
+    .btn-primary {
+      box-shadow: 0 4px 20px rgba(74,158,255,0.35);
+    }
+
+    /* Roomier hint cards for touch targets */
+    .hint { padding: 16px 18px; }
+    .hint-num { font-size: 12px; }
+    .hint-title { font-size: 15px; margin-bottom: 5px; }
+    .hint-example { font-size: 14px; line-height: 1.5; }
+
+    /* Slightly larger widget text for readability */
+    .widget-title { font-size: 12px; }
+    .widget-label, .widget-value { font-size: 12px; }
+    .slide-card-title { font-size: 12px; }
+    .slide-hero { font-size: 22px; }
+    .slide-caption { font-size: 11px; }
+
+    /* Chart widgets get a bit more height on mobile */
+    .chart-wrap { height: 200px; }
+
+    /* Hide "Smart City Intelligence" subheader on small screens */
+    .logo-sub { display: none; }
   }
 </style>
 </head>
@@ -360,7 +459,7 @@
       <div id="widgetEmpty">
         <div class="widget-empty">
           <div class="widget-empty-icon">S</div>
-          Say <strong>"Hey Saga"</strong> to activate.<br>
+          Tap <strong>Turn On</strong>, then say <strong>"Hey Saga"</strong> to activate.<br>
           Widgets appear as SAGA processes queries.
         </div>
         <div class="panel-title" style="padding-left:4px">Try Saying</div>
@@ -384,6 +483,16 @@
             <div class="hint-num">04</div>
             <div class="hint-title">Proactive Guardian</div>
             <div class="hint-example">"What's the weather alert status?"</div>
+          </div>
+          <div class="hint">
+            <div class="hint-num">05</div>
+            <div class="hint-title">Board Prep</div>
+            <div class="hint-example">"Draft a presentation of last quarter's financials for my board meeting today"</div>
+          </div>
+          <div class="hint">
+            <div class="hint-num">06</div>
+            <div class="hint-title">Visitor Concierge</div>
+            <div class="hint-example">"What can I do in Harbour City today?"</div>
           </div>
         </div>
       </div>
@@ -409,7 +518,7 @@
         <div class="viz-bar"></div><div class="viz-bar"></div><div class="viz-bar"></div>
         <div class="viz-bar"></div><div class="viz-bar"></div><div class="viz-bar"></div>
       </div>
-      <button class="btn btn-primary" id="startBtn" onclick="startSession()">Start</button>
+      <button class="btn btn-primary" id="startBtn" onclick="startSession()">Turn On</button>
       <button class="btn btn-stop" id="stopBtn" onclick="stopSession()" style="display:none">Stop</button>
     </div>
   </div>
@@ -606,6 +715,14 @@ const WIDGET_TITLES = {
   create_projection: 'Financial Projection',
   generate_deck: 'Presentation',
   send_notification: 'Notification',
+  draft_narrative: 'Narrative Draft',
+  request_stakeholder_input: 'Stakeholder Inputs',
+  book_meeting_room: 'Meeting Room',
+  order_catering: 'Catering',
+  plan_day_itinerary: 'Day Itinerary',
+  book_itinerary: 'Bookings Confirmed',
+  render_chart: 'Chart',
+  generate_slide_preview: 'Slide Preview',
 };
 
 // Color accent per function
@@ -616,6 +733,9 @@ const WIDGET_COLORS = {
   check_backup_power: 'green',
   book_emergency_accommodation: 'red',
   analyze_energy_spike: 'amber',
+  plan_day_itinerary: 'green',
+  book_itinerary: 'green',
+  book_meeting_room: 'accent',
 };
 
 const ALERT_FUNCTIONS = new Set(Object.keys(WIDGET_COLORS));
@@ -686,6 +806,166 @@ function rowHtml(label, value) {
 
 // Active widgets by ID (function name or custom title)
 const activeWidgets = {};
+
+// =====================================================================
+// CHART + SLIDE PREVIEW RENDERERS
+// =====================================================================
+
+const chartInstances = {};
+
+const CHART_PALETTE = {
+  blue:  { bg: 'rgba(74,158,255,0.55)',  border: '#4a9eff' },
+  green: { bg: 'rgba(52,211,153,0.55)',  border: '#34d399' },
+  amber: { bg: 'rgba(251,191,36,0.55)',  border: '#fbbf24' },
+  red:   { bg: 'rgba(248,113,113,0.55)', border: '#f87171' },
+};
+const DONUT_RING = ['#4a9eff', '#34d399', '#fbbf24', '#f87171', '#a78bfa', '#22d3ee', '#fb7185'];
+
+function buildChartConfig(result) {
+  const palette = CHART_PALETTE[result.color] || CHART_PALETTE.blue;
+  const isSparkline = result.chart_type === 'sparkline';
+  const type = result.chart_type === 'donut'
+    ? 'doughnut'
+    : (isSparkline ? 'line' : (result.chart_type || 'bar'));
+  const unit = result.unit || '';
+
+  const ds = {
+    data: result.values || [],
+    borderWidth: type === 'line' ? 2 : 1,
+    borderRadius: type === 'bar' ? 4 : 0,
+    tension: 0.35,
+    pointRadius: isSparkline ? 0 : 3,
+    pointBackgroundColor: palette.border,
+    fill: type === 'line' ? false : true,
+  };
+
+  if (type === 'doughnut') {
+    ds.backgroundColor = DONUT_RING;
+    ds.borderColor = 'var(--surface-2)';
+    ds.borderWidth = 2;
+    ds.cutout = '62%';
+  } else {
+    ds.backgroundColor = palette.bg;
+    ds.borderColor = palette.border;
+  }
+
+  const axisTick = { color: '#6b6b7b', font: { size: 9, family: 'JetBrains Mono' } };
+  const gridStyle = { color: 'rgba(255,255,255,0.04)', drawBorder: false };
+
+  const scales = (type === 'doughnut' || isSparkline) ? {} : {
+    x: { ticks: axisTick, grid: gridStyle, border: { display: false } },
+    y: { ticks: axisTick, grid: gridStyle, border: { display: false }, beginAtZero: false },
+  };
+
+  return {
+    type,
+    data: { labels: result.labels || [], datasets: [ds] },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 700, easing: 'easeOutQuart' },
+      plugins: {
+        legend: {
+          display: type === 'doughnut',
+          position: 'right',
+          labels: { color: '#9a9aad', font: { size: 9 }, boxWidth: 8, padding: 6, usePointStyle: true },
+        },
+        tooltip: {
+          backgroundColor: '#12121a',
+          titleColor: '#e8e8ed',
+          bodyColor: '#e8e8ed',
+          borderColor: 'rgba(255,255,255,0.08)',
+          borderWidth: 1,
+          padding: 8,
+          callbacks: {
+            label: (ctx) => {
+              const v = ctx.parsed.y !== undefined ? ctx.parsed.y : ctx.parsed;
+              return ` ${v}${unit}`;
+            },
+          },
+        },
+      },
+      scales,
+    },
+  };
+}
+
+function renderChartWidget(widgetId, result, title, color) {
+  const empty = document.getElementById('widgetEmpty');
+  if (empty) empty.style.display = 'none';
+  const container = document.getElementById('widgetContainer');
+  const canvasId = 'canvas-' + widgetId.replace(/[^a-zA-Z0-9]/g, '-');
+  const bodyHtml = `<div class="chart-wrap"><canvas id="${canvasId}"></canvas></div>`;
+
+  let widget = activeWidgets[widgetId];
+  if (widget) {
+    if (chartInstances[widgetId]) { chartInstances[widgetId].destroy(); delete chartInstances[widgetId]; }
+    widget.querySelector('.widget-body').innerHTML = bodyHtml;
+    widget.classList.remove('pulse-in', 'pulse-in-alert');
+    void widget.offsetWidth;
+    widget.classList.add('pulse-in');
+  } else {
+    widget = document.createElement('div');
+    widget.className = 'widget pulse-in';
+    widget.innerHTML = `
+      <div class="widget-header">
+        <div class="widget-dot ${color}"></div>
+        <div class="widget-title">${title}</div>
+      </div>
+      <div class="widget-body">${bodyHtml}</div>
+    `;
+    container.insertBefore(widget, container.firstChild);
+    activeWidgets[widgetId] = widget;
+  }
+
+  requestAnimationFrame(() => {
+    const canvas = document.getElementById(canvasId);
+    if (canvas && window.Chart) {
+      try {
+        chartInstances[widgetId] = new Chart(canvas, buildChartConfig(result));
+      } catch (e) {
+        console.error('[SAGA] Chart render error:', e);
+      }
+    }
+  });
+}
+
+function renderSlideGridWidget(widgetId, result, title, color) {
+  const empty = document.getElementById('widgetEmpty');
+  if (empty) empty.style.display = 'none';
+  const container = document.getElementById('widgetContainer');
+
+  const slides = Array.isArray(result.slides) ? result.slides : [];
+  const cardsHtml = slides.map((s, i) => `
+    <div class="slide-card">
+      <div class="slide-num">SLIDE ${String(i + 1).padStart(2, '0')}</div>
+      <div class="slide-card-title">${(s.title || '').replace(/</g, '&lt;')}</div>
+      <div class="slide-hero">${(s.hero_stat || '').replace(/</g, '&lt;')}</div>
+      <div class="slide-caption">${(s.caption || '').replace(/</g, '&lt;')}</div>
+    </div>
+  `).join('');
+  const bodyHtml = `<div class="slide-grid">${cardsHtml}</div>`;
+
+  let widget = activeWidgets[widgetId];
+  if (widget) {
+    widget.querySelector('.widget-body').innerHTML = bodyHtml;
+    widget.classList.remove('pulse-in', 'pulse-in-alert');
+    void widget.offsetWidth;
+    widget.classList.add('pulse-in');
+  } else {
+    widget = document.createElement('div');
+    widget.className = 'widget pulse-in';
+    widget.innerHTML = `
+      <div class="widget-header">
+        <div class="widget-dot ${color}"></div>
+        <div class="widget-title">${title}</div>
+      </div>
+      <div class="widget-body">${bodyHtml}</div>
+    `;
+    container.insertBefore(widget, container.firstChild);
+    activeWidgets[widgetId] = widget;
+  }
+}
 
 function createOrUpdateWidget(widgetId, result, title, color, isAlert) {
   // Hide empty state
@@ -772,7 +1052,13 @@ socket.on('function_executed', (data) => {
   const widgetColor = data.widget_color || WIDGET_COLORS[data.name] || 'accent';
   const isAlert = ALERT_FUNCTIONS.has(data.name) || widgetColor === 'red';
 
-  createOrUpdateWidget(widgetId, data.result, widgetTitle, widgetColor, isAlert);
+  if (data.name === 'render_chart') {
+    renderChartWidget(widgetId, data.result, widgetTitle, widgetColor);
+  } else if (data.name === 'generate_slide_preview') {
+    renderSlideGridWidget(widgetId, data.result, widgetTitle, widgetColor);
+  } else {
+    createOrUpdateWidget(widgetId, data.result, widgetTitle, widgetColor, isAlert);
+  }
 
   // Show toast
   if (data.name === 'update_dashboard') {

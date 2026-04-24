@@ -257,6 +257,11 @@ class VoiceAgent:
                                     event["widget_id"] = title
                                     event["widget_title"] = title
                                     event["widget_color"] = params.get("color", "blue")
+                                elif fn_name == "render_chart":
+                                    title = params.get("title", "Chart")
+                                    event["widget_id"] = f"chart::{title}"
+                                    event["widget_title"] = title
+                                    event["widget_color"] = params.get("color", "blue")
                                 socketio.emit("function_executed", event)
 
                             response_payload = {
