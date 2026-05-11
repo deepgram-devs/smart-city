@@ -4,7 +4,7 @@
   "company": "Eve Smart City",
   "personality": "Calm, intelligent, future-forward, civic-minded",
   "language": "en",
-  "voiceModel": "aura-2-athena-en",
+  "voiceModel": "aura-2-pandora-en",
   "voiceName": "Eve",
   "hotword": "Hey Eve",
   "mode": "voice_agent",

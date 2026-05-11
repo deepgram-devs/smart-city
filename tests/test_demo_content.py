@@ -37,9 +37,14 @@ def cfg() -> dict:
 # Voice + hotword: the wake word the customer says, and the voice they hear.
 # ---------------------------------------------------------------------------
 
-def test_voice_model_is_athena(cfg):
-    """British female aura-2 voice — locked per customer request."""
-    assert cfg["voiceModel"] == "aura-2-athena-en"
+def test_voice_model_is_pandora(cfg):
+    """British female aura-2 voice — locked per customer request.
+
+    Note: aura-2-athena-en is documented en-gb but does not actually read as
+    British (confirmed by ear, 2026-05-11). Pandora is the chosen voice; if
+    the Deepgram catalog changes, re-audition before updating this assertion.
+    """
+    assert cfg["voiceModel"] == "aura-2-pandora-en"
 
 
 def test_hotword_is_hey_eve(cfg):
