@@ -1,6 +1,6 @@
 <svg width="400" height="240" viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg">
   <style>
-    /* SAGA UI PALETTE */
+    /* Eve UI palette */
     :root {
       --cyan: #00d4ff;
       --solar: #ffeaa7;
@@ -95,7 +95,7 @@
     /* Arbitrage Flow Diversion */
     @keyframes arbitrage-active {
       0%, 40% { stroke-width: 0; opacity: 0; }        /* Off during spike start */
-      45%, 90% { stroke-width: 1.5; opacity: 1; stroke: var(--cyan); filter: drop-shadow(0 0 1px var(--cyan));} /* SAGA redirects power */
+      45%, 90% { stroke-width: 1.5; opacity: 1; stroke: var(--cyan); filter: drop-shadow(0 0 1px var(--cyan));} /* Eve redirects power */
       100% { stroke-width: 1; opacity: 0.6; }        /* New standard operating level */
     }
 
@@ -109,7 +109,7 @@
     </pattern>
   </defs>
 
-  <text x="5" y="10" class="hud-text">SAGA // GRID_OP // POWER_FLOW</text>
+  <text x="5" y="10" class="hud-text">EVE // GRID_OP // POWER_FLOW</text>
   <text x="5" y="16" class="hud-text" opacity="0.5">CAPACITY: 850MW</text>
   
   <path d="M50,40 L100,20 L150,40 L150,80 L100,100 L50,80 Z" class="grid-trace" /> <path d="M100,20 L100,0 M150,40 L180,30 M150,80 L180,90 M100,100 L100,120 M50,80 L20,90 M50,40 L20,30" class="grid-trace" /> <g id="SOLAR_NODE" transform="translate(10, 18)">

@@ -2,7 +2,7 @@
 
 import json
 
-from saga.mock_data import CITY_STATE, log_action
+from saga.mock_data import CITY_STATE, MANAGEMENT_STAKEHOLDERS_CSV, log_action
 
 
 # ---------------------------------------------------------------------------
@@ -221,7 +221,7 @@ async def generate_deck(params):
         "brand_kit": brand_kit,
         "slides": 14,
         "platform": "Canva",
-        "link": "https://saga.city/decks/board-review-2036",
+        "link": "https://eve.city/decks/board-review-2036",
     }
 
 
@@ -234,7 +234,7 @@ async def send_notification(params):
     log_action(f"Notification sent to {recipient}: {content} (priority: {priority})")
     return {
         "recipient": recipient,
-        "method": "SAGA wearable + email",
+        "method": "Eve wearable + email",
         "content": content,
         "priority": priority,
         "status": "delivered",
@@ -274,7 +274,7 @@ async def draft_narrative(params):
 async def request_stakeholder_input(params):
     """Email stakeholders requesting inputs on a deliverable."""
     deliverable = params.get("deliverable", "Q1 board deck")
-    recipients = params.get("recipients", "Donny Reyes, Jordan Kwan, Chris Peralta")
+    recipients = params.get("recipients", MANAGEMENT_STAKEHOLDERS_CSV)
     deadline = params.get("deadline", "3:00 PM today")
 
     recipient_list = [r.strip() for r in recipients.split(",") if r.strip()]
@@ -285,7 +285,7 @@ async def request_stakeholder_input(params):
         "recipients": recipient_list,
         "recipient_count": len(recipient_list),
         "deadline": deadline,
-        "channel": "Email + SAGA wearable nudge",
+        "channel": "Email + Eve wearable nudge",
         "status": "sent",
     }
 
@@ -307,7 +307,7 @@ async def book_meeting_room(params):
         "attendee_count": 9,
         "purpose": purpose,
         "calendar_invites": "sent",
-        "av_confirmed": "4K wall, SAGA cast link ready",
+        "av_confirmed": "4K wall, Eve cast link ready",
         "status": "confirmed",
     }
 
@@ -563,7 +563,7 @@ FILLER_PHRASES = [
     "Stand by.",
     "One second.",
     "Pulling city data.",
-    "Querying SAGA systems.",
+    "Querying Eve systems.",
     "Running diagnostics.",
     "Accessing the network.",
     "Scanning city data.",

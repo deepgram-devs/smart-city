@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SAGA</title>
+<title>Eve</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -440,9 +440,9 @@
   <!-- Header -->
   <header class="header">
     <div class="logo">
-      <div class="logo-mark">S</div>
+      <div class="logo-mark">E</div>
       <div>
-        <div class="logo-text">SAGA</div>
+        <div class="logo-text">Eve</div>
         <div class="logo-sub">Smart City Intelligence</div>
       </div>
     </div>
@@ -458,9 +458,9 @@
     <div class="widget-container" id="widgetContainer">
       <div id="widgetEmpty">
         <div class="widget-empty">
-          <div class="widget-empty-icon">S</div>
-          Tap <strong>Turn On</strong>, then say <strong>"Hey Saga"</strong> to activate.<br>
-          Widgets appear as SAGA processes queries.
+          <div class="widget-empty-icon">E</div>
+          Tap <strong>Turn On</strong>, then say <strong>"Hey Eve"</strong> to activate.<br>
+          Widgets appear as Eve processes queries.
         </div>
         <div class="panel-title" style="padding-left:4px">Try Saying</div>
         <div class="scenario-hints" style="padding:0">
@@ -503,10 +503,10 @@
   <div class="conversation">
     <div class="messages" id="messages">
       <div class="welcome-state" id="welcome">
-        <div class="welcome-icon">S</div>
+        <div class="welcome-icon">E</div>
         <div class="welcome-text">
           Start a session, then say<br>
-          <strong>"Hey Saga"</strong> to begin
+          <strong>"Hey Eve"</strong> to begin
         </div>
       </div>
     </div>
@@ -650,7 +650,7 @@ socket.on('conversation_update', (msg) => {
 
   const label = document.createElement('div');
   label.className = 'msg-label';
-  label.textContent = msg.role === 'user' ? 'YOU' : 'SAGA';
+  label.textContent = msg.role === 'user' ? 'YOU' : 'EVE';
   div.appendChild(label);
 
   const text = document.createElement('div');
@@ -676,7 +676,7 @@ socket.on('hotword_state', (data) => {
 socket.on('agent_ready', () => { setStatus('ambient'); });
 
 socket.on('session_timeout', () => {
-  showToast({ title: 'Session idle', detail: 'Say "Hey Saga" to continue', color: 'amber' });
+  showToast({ title: 'Session idle', detail: 'Say "Hey Eve" to continue', color: 'amber' });
 });
 
 // ---------------------------------------------------------------------------

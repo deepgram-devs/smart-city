@@ -1,5 +1,7 @@
 """Function definitions sent to the Deepgram Voice Agent API."""
 
+from saga.mock_data import MANAGEMENT_STAKEHOLDERS_WITH_ROLES
+
 SAGA_FUNCTION_DEFINITIONS = [
     # ----- Scenario 1: Command & Control -----
     {
@@ -155,7 +157,7 @@ SAGA_FUNCTION_DEFINITIONS = [
     },
     {
         "name": "send_notification",
-        "description": "Send a notification to a person via SAGA wearable and email. Use when the user asks to notify, email, or alert someone.",
+        "description": "Send a notification to a person via Eve wearable and email. Use when the user asks to notify, email, or alert someone.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -206,7 +208,7 @@ SAGA_FUNCTION_DEFINITIONS = [
                 },
                 "recipients": {
                     "type": "string",
-                    "description": "Comma-separated stakeholder names (default: CFO Donny Reyes, Sustainability VP Jordan Kwan, Partnerships Head Chris Peralta)",
+                    "description": f"Comma-separated stakeholder names (default: {MANAGEMENT_STAKEHOLDERS_WITH_ROLES})",
                 },
                 "deadline": {
                     "type": "string",

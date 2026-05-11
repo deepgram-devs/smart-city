@@ -1,6 +1,6 @@
 <svg width="400" height="200" viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg">
   <style>
-    /* Base Color: SAGA Cyan */
+    /* Base color: Eve Cyan */
     :root {
       --cyan: #00d4ff;
       --alert: #ff4757;

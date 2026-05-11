@@ -7,6 +7,19 @@ The frontend polls /api/city-state to render the sidebar dashboard.
 import copy
 from datetime import datetime
 
+# Single source of truth for the management-team stakeholders the agent emails
+# for inputs on board prep. Referenced by saga.definitions (LLM-facing function
+# description), saga.functions (runtime default), and asserted against
+# configs/saga.json's system prompt by tests/test_demo_content.py so the three
+# sources cannot drift.
+MANAGEMENT_STAKEHOLDERS: list[tuple[str, str]] = [
+    ("CFO", "Donny Pile"),
+    ("Sustainability VP", "Noel Yaneza"),
+    ("Partnerships Head", "Ishadora Lim"),
+]
+MANAGEMENT_STAKEHOLDERS_CSV = ", ".join(name for _, name in MANAGEMENT_STAKEHOLDERS)
+MANAGEMENT_STAKEHOLDERS_WITH_ROLES = ", ".join(f"{role} {name}" for role, name in MANAGEMENT_STAKEHOLDERS)
+
 _INITIAL_STATE = {
     "power_grid": {
         "total_capacity_mw": 850,

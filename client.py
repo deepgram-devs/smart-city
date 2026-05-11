@@ -67,6 +67,12 @@ def build_settings() -> dict:
 
     set_hotword(hotword)
 
+    # Derive STT keyterms from the configured hotword so a config-only rename
+    # tunes Deepgram for the new wake word. Includes both the full phrase
+    # ("Hey Eve") and the bare name ("Eve") so the model recognizes the agent
+    # mid-conversation, not only at activation.
+    keyterms = [hotword, hotword.split()[-1]] if hotword else [cfg["voiceName"]]
+
     functions = list(SAGA_FUNCTION_DEFINITIONS)
     if hotword:
         system_prompt += (
@@ -93,7 +99,7 @@ def build_settings() -> dict:
         "audio": AUDIO_SETTINGS,
         "agent": {
             "language": cfg.get("language", "en"),
-            "listen": {"provider": {"type": "deepgram", "model": "nova-3", "keyterms": ["Hey Saga", "Saga"]}},
+            "listen": {"provider": {"type": "deepgram", "model": "nova-3", "keyterms": keyterms}},
             "think": {
                 "provider": {"type": "open_ai", "model": "gpt-5.4-nano", "temperature": 0.7},
                 "prompt": system_prompt,
@@ -554,6 +560,6 @@ def handle_audio(data):
 
 
 if __name__ == "__main__":
-    print("\n  SAGA Smart City Demo")
+    print("\n  Eve Smart City Demo")
     print("  http://127.0.0.1:5000\n")
     socketio.run(app, debug=True)

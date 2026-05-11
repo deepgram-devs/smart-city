@@ -1,6 +1,6 @@
 <svg width="600" height="300" viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg">
   <style>
-    /* SAGA UI Aesthetic */
+    /* Eve UI aesthetic */
     :root {
       --cyan: #00d4ff;
       --track: #222;
@@ -40,7 +40,7 @@
   </defs>
   <rect width="200" height="100" fill="url(#grid)"/>
 
-  <text x="10" y="10" class="hud-header">SAGA // TRANSIT_OS // PODWAY_LIVE_TELEMETRY</text>
+  <text x="10" y="10" class="hud-header">EVE // TRANSIT_OS // PODWAY_LIVE_TELEMETRY</text>
   <text x="190" y="10" class="hud-header" text-anchor="end">STATUS: FLUID_OPTIMIZED</text>
   
   <rect x="10" y="75" width="60" height="15" class="hud-box"/>
