@@ -61,7 +61,7 @@ SAGA_FUNCTION_DEFINITIONS = [
     },
     {
         "name": "order_coffee",
-        "description": "Order a coffee or drink and pay via Face-ID. Use when the user mentions coffee, drinks, or ordering at a cafe.",
+        "description": "Order a coffee or drink. Pair with process_payment to complete a visible demo checkout.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -75,6 +75,32 @@ SAGA_FUNCTION_DEFINITIONS = [
                 },
             },
             "required": ["drink"],
+        },
+    },
+    {
+        "name": "process_payment",
+        "description": (
+            "Process a clearly demo-illustrative payment using the reusable Square Terminal Sandbox provider. "
+            "Use for parking, transit, tickets, city services, retail, food, or any request that includes payment. "
+            "No real card or money is involved."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number",
+                    "description": "Demo amount. Keep USD sandbox checkouts at or below 25.",
+                },
+                "currency": {
+                    "type": "string",
+                    "description": "Currency code; this demo supports USD (default: USD)",
+                },
+                "purpose": {
+                    "type": "string",
+                    "description": "What is being paid for (for example, Marina parking or a transit day pass)",
+                },
+            },
+            "required": ["amount", "purpose"],
         },
     },
     {

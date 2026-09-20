@@ -26,6 +26,7 @@ from saga.mock_data import (
 )
 
 CONFIG_PATH = Path(__file__).parent.parent / "configs" / "saga.json"
+TEMPLATE_PATH = Path(__file__).parent.parent / "templates" / "index.html"
 
 
 @pytest.fixture(scope="module")
@@ -124,3 +125,10 @@ def test_generate_deck_link_uses_eve_domain():
 def test_book_meeting_room_cast_string_uses_eve():
     result = asyncio.run(SAGA_FUNCTION_MAP["book_meeting_room"]({}))
     assert "Eve cast link ready" in result["av_confirmed"]
+
+
+def test_square_payment_demo_is_visible_in_customer_ui():
+    page = TEMPLATE_PATH.read_text()
+    assert "Square Payment" in page
+    assert 'Pay my $4.50 Marina parking fee with Square' in page
+    assert "process_payment" in page

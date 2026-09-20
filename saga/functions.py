@@ -1,7 +1,10 @@
 """SAGA function implementations. All return scripted mock data."""
 
+import asyncio
 import json
+import requests
 
+from common.payments import process_payment as run_payment
 from saga.mock_data import CITY_STATE, MANAGEMENT_STAKEHOLDERS_CSV, log_action
 
 
@@ -108,18 +111,36 @@ async def book_pod(params):
 
 
 async def order_coffee(params):
-    """Order a coffee and pay via Face-ID."""
+    """Order a coffee; payment is a separate reusable function call."""
     drink = params.get("drink", "flat white")
     location = params.get("location", "lobby cafe")
 
-    log_action(f"Coffee ordered: {drink} at {location}, paid via Face-ID")
+    log_action(f"Coffee ordered: {drink} at {location}, awaiting payment")
     return {
         "drink": drink,
         "location": location,
-        "payment_method": "Face-ID",
+        "amount_usd": 4.50,
+        "payment_status": "awaiting_payment",
         "ready_in_minutes": 4,
         "status": "confirmed",
     }
+
+
+async def process_payment(params):
+    """Process a demo payment through the reusable payment provider."""
+    try:
+        # The real Square Sandbox provider uses HTTP; keep it off the Voice
+        # Agent receiver loop so audio and other function calls stay responsive.
+        result = await asyncio.to_thread(run_payment, params)
+    except (ValueError, requests.RequestException, KeyError) as exc:
+        log_action(f"Payment failed: {exc}")
+        return {"status": "FAILED", "error": str(exc), "demo_illustrative": True}
+
+    log_action(
+        f"Payment {result['status']}: {result['currency']} {result['amount']} "
+        f"via {result['provider']} ({result['mode']})"
+    )
+    return result
 
 
 async def set_climate(params):
@@ -606,6 +627,7 @@ SAGA_FUNCTION_MAP = {
     # Scenario 2
     "book_pod": book_pod,
     "order_coffee": order_coffee,
+    "process_payment": process_payment,
     "set_climate": set_climate,
     "check_energy_credits": check_energy_credits,
     # Scenario 3

@@ -494,6 +494,11 @@
             <div class="hint-title">Visitor Concierge</div>
             <div class="hint-example">"What can I do in Harbour City today?"</div>
           </div>
+          <div class="hint">
+            <div class="hint-num">07</div>
+            <div class="hint-title">Square Payment</div>
+            <div class="hint-example">"Pay my $4.50 Marina parking fee with Square"</div>
+          </div>
         </div>
       </div>
     </div>
@@ -688,7 +693,7 @@ socket.on('city_state_update', (state) => {
   (state.recent_actions || []).forEach(a => {
     const item = document.createElement('div');
     item.className = 'action-item';
-    item.innerHTML = `<div class="action-time">${a.time}</div><div class="action-text">${a.action}</div>`;
+    item.innerHTML = `<div class="action-time">${escapeHtml(a.time)}</div><div class="action-text">${escapeHtml(a.action)}</div>`;
     feed.appendChild(item);
   });
 });
@@ -703,6 +708,7 @@ const WIDGET_TITLES = {
   activate_flood_gates: 'Flood Gates',
   book_pod: 'Transit Pod',
   order_coffee: 'Coffee Order',
+  process_payment: 'Square Payment',
   set_climate: 'Climate Control',
   check_energy_credits: 'Energy Credits',
   get_grid_status: 'Power Grid',
@@ -736,6 +742,7 @@ const WIDGET_COLORS = {
   plan_day_itinerary: 'green',
   book_itinerary: 'green',
   book_meeting_room: 'accent',
+  process_payment: 'green',
 };
 
 const ALERT_FUNCTIONS = new Set(Object.keys(WIDGET_COLORS));
@@ -746,6 +753,16 @@ const SKIP_KEYS = new Set(['id', 'alert_type']);
 // Humanize a snake_case key: "close_time" -> "Close Time"
 function humanizeKey(key) {
   return key.replace(/_/g, ' ').replace(/\b[a-z]/g, c => c.toUpperCase());
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[char]);
+}
+
+function safeColor(value) {
+  return ['blue', 'green', 'amber', 'red', 'accent'].includes(value) ? value : 'blue';
 }
 
 // Auto-generate widget title from function name
@@ -801,7 +818,7 @@ function renderRows(data, depth) {
 }
 
 function rowHtml(label, value) {
-  return `<div class="widget-row"><span class="widget-label">${label}</span><span class="widget-value">${value}</span></div>`;
+  return `<div class="widget-row"><span class="widget-label">${escapeHtml(label)}</span><span class="widget-value">${escapeHtml(value)}</span></div>`;
 }
 
 // Active widgets by ID (function name or custom title)
@@ -909,8 +926,8 @@ function renderChartWidget(widgetId, result, title, color) {
     widget.className = 'widget pulse-in';
     widget.innerHTML = `
       <div class="widget-header">
-        <div class="widget-dot ${color}"></div>
-        <div class="widget-title">${title}</div>
+        <div class="widget-dot ${safeColor(color)}"></div>
+        <div class="widget-title">${escapeHtml(title)}</div>
       </div>
       <div class="widget-body">${bodyHtml}</div>
     `;
@@ -939,9 +956,9 @@ function renderSlideGridWidget(widgetId, result, title, color) {
   const cardsHtml = slides.map((s, i) => `
     <div class="slide-card">
       <div class="slide-num">SLIDE ${String(i + 1).padStart(2, '0')}</div>
-      <div class="slide-card-title">${(s.title || '').replace(/</g, '&lt;')}</div>
-      <div class="slide-hero">${(s.hero_stat || '').replace(/</g, '&lt;')}</div>
-      <div class="slide-caption">${(s.caption || '').replace(/</g, '&lt;')}</div>
+      <div class="slide-card-title">${escapeHtml(s.title || '')}</div>
+      <div class="slide-hero">${escapeHtml(s.hero_stat || '')}</div>
+      <div class="slide-caption">${escapeHtml(s.caption || '')}</div>
     </div>
   `).join('');
   const bodyHtml = `<div class="slide-grid">${cardsHtml}</div>`;
@@ -957,8 +974,8 @@ function renderSlideGridWidget(widgetId, result, title, color) {
     widget.className = 'widget pulse-in';
     widget.innerHTML = `
       <div class="widget-header">
-        <div class="widget-dot ${color}"></div>
-        <div class="widget-title">${title}</div>
+        <div class="widget-dot ${safeColor(color)}"></div>
+        <div class="widget-title">${escapeHtml(title)}</div>
       </div>
       <div class="widget-body">${bodyHtml}</div>
     `;
@@ -1008,8 +1025,8 @@ function createOrUpdateWidget(widgetId, result, title, color, isAlert) {
     widget.className = `widget ${isAlert ? 'pulse-in-alert' : 'pulse-in'}`;
     widget.innerHTML = `
       <div class="widget-header">
-        <div class="widget-dot ${color}"></div>
-        <div class="widget-title">${title}</div>
+        <div class="widget-dot ${safeColor(color)}"></div>
+        <div class="widget-title">${escapeHtml(title)}</div>
       </div>
       <div class="widget-body">${rowsHtml}</div>
     `;
@@ -1025,7 +1042,16 @@ function createOrUpdateWidget(widgetId, result, title, color, isAlert) {
 
 const FUNCTION_TOAST = {
   book_pod: (r) => ({ title: 'Pod Dispatched', detail: `#${r.pod_number} to ${r.destination}`, color: 'accent' }),
-  order_coffee: (r) => ({ title: 'Coffee Ordered', detail: `${r.drink} via ${r.payment_method}`, color: 'accent' }),
+  order_coffee: (r) => ({ title: 'Coffee Ordered', detail: `${r.drink} · payment pending`, color: 'accent' }),
+  process_payment: (r) => {
+    const approved = ['COMPLETED', 'SIMULATED_COMPLETED'].includes(r.status);
+    const pending = ['PENDING', 'IN_PROGRESS'].includes(r.status);
+    return {
+      title: approved ? 'Payment Approved' : pending ? 'Payment Pending' : 'Payment Not Completed',
+      detail: `${r.currency} ${r.amount} · ${r.provider}`,
+      color: approved ? 'green' : pending ? 'amber' : 'red',
+    };
+  },
   set_climate: (r) => ({ title: 'Climate Set', detail: `${r.location} to ${r.target_temp_c}C`, color: 'accent' }),
   get_weather_alert: (r) => {
     if (r.alert_count > 0) return { title: 'Weather Alert', detail: `${r.alerts[0].type}: ${r.alerts[0].surge_meters}m`, color: 'red' };
@@ -1072,12 +1098,12 @@ socket.on('function_executed', (data) => {
 function showToast({ title, detail, color }) {
   const container = document.getElementById('toastContainer');
   const el = document.createElement('div');
-  el.className = `toast toast-${color || 'accent'}`;
+  el.className = `toast toast-${safeColor(color || 'accent')}`;
   el.innerHTML = `
     <div class="toast-indicator"></div>
     <div class="toast-body">
-      <div class="toast-title">${title}</div>
-      <div class="toast-detail">${detail}</div>
+      <div class="toast-title">${escapeHtml(title)}</div>
+      <div class="toast-detail">${escapeHtml(detail)}</div>
     </div>
   `;
   container.appendChild(el);

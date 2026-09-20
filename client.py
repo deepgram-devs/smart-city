@@ -124,6 +124,7 @@ class VoiceAgent:
         self._starting = True  # True during init/setup, prevents false stale detection
         self.loop = None
         self._greeting_done = False  # True after first user utterance; gates output suppression
+        self._background_calls = set()
 
     @property
     def is_stale(self):
@@ -179,6 +180,32 @@ class VoiceAgent:
                     await self.ws.send(data)
         except Exception as e:
             logger.error(f"Sender error: {e}")
+
+    async def _complete_background_call(self, fn_name, fn_id, params, func):
+        """Finish slow I/O tools without blocking audio/barge-in reception."""
+        try:
+            result = await func(params)
+            socketio.emit("function_executed", {"name": fn_name, "result": result})
+            response_payload = {
+                "type": "FunctionCallResponse",
+                "id": fn_id,
+                "name": fn_name,
+                "content": json.dumps(result),
+            }
+            logger.info(f"Sending FunctionCallResponse: {fn_name} -> {str(result)[:200]}")
+            await self.ws.send(json.dumps(response_payload))
+            socketio.emit("city_state_update", get_city_state())
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.error(f"Background function error ({fn_name}): {exc}")
+            if self.ws and not self.ws.closed:
+                await self.ws.send(json.dumps({
+                    "type": "FunctionCallResponse",
+                    "id": fn_id,
+                    "name": fn_name,
+                    "content": json.dumps({"status": "FAILED", "error": str(exc)}),
+                }))
 
     async def receiver(self):
         try:
@@ -236,6 +263,13 @@ class VoiceAgent:
                                     continue
 
                             func = FUNCTION_MAP.get(fn_name)
+                            if func and fn_name == "process_payment":
+                                task = asyncio.create_task(
+                                    self._complete_background_call(fn_name, fn_id, params, func)
+                                )
+                                self._background_calls.add(task)
+                                task.add_done_callback(self._background_calls.discard)
+                                continue
                             if func:
                                 result = await func(params)
                             else:
@@ -268,6 +302,10 @@ class VoiceAgent:
                                     event["widget_id"] = f"chart::{title}"
                                     event["widget_title"] = title
                                     event["widget_color"] = params.get("color", "blue")
+                                # Never let model-authored values escape into a CSS
+                                # class name on the frontend.
+                                if event.get("widget_color") not in {"blue", "green", "amber", "red", "accent"}:
+                                    event["widget_color"] = "blue"
                                 socketio.emit("function_executed", event)
 
                             response_payload = {
@@ -324,6 +362,10 @@ class VoiceAgent:
             logger.error(f"Run error: {e}")
         finally:
             self.is_running = False
+            for task in self._background_calls:
+                task.cancel()
+            if self._background_calls:
+                await asyncio.gather(*self._background_calls, return_exceptions=True)
             if self.ws:
                 await self.ws.close()
 
