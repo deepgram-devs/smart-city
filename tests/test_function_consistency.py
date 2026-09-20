@@ -2,6 +2,7 @@
 
 from saga.definitions import SAGA_FUNCTION_DEFINITIONS
 from saga.functions import SAGA_FUNCTION_MAP, get_random_filler, FILLER_PHRASES
+from saga.mock_data import CITY_STATE, reset_city_state
 from common.agent_functions import HOTWORD_FUNCTION_MAP
 
 
@@ -38,3 +39,11 @@ def test_filler_phrases_exist():
     assert len(FILLER_PHRASES) >= 10
     assert callable(get_random_filler)
     assert get_random_filler() in FILLER_PHRASES
+
+
+def test_reset_city_state_preserves_shared_singleton_reference():
+    original_id = id(CITY_STATE)
+    CITY_STATE["transit"]["autonomous_pods"]["available"] = 0
+    reset_city_state()
+    assert id(CITY_STATE) == original_id
+    assert CITY_STATE["transit"]["autonomous_pods"]["available"] == 342

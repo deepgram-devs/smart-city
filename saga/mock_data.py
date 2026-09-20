@@ -118,8 +118,11 @@ CITY_STATE: dict = copy.deepcopy(_INITIAL_STATE)
 
 def reset_city_state() -> dict:
     """Reset to initial state. Returns the fresh state."""
-    global CITY_STATE
-    CITY_STATE = copy.deepcopy(_INITIAL_STATE)
+    # Mutate in place: saga.functions holds a reference to this singleton.
+    # Rebinding here made /api/reset look successful while function calls kept
+    # reading and changing the stale pre-reset object.
+    CITY_STATE.clear()
+    CITY_STATE.update(copy.deepcopy(_INITIAL_STATE))
     return CITY_STATE
 
 
