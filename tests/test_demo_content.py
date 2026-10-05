@@ -38,14 +38,29 @@ def cfg() -> dict:
 # Voice + hotword: the wake word the customer says, and the voice they hear.
 # ---------------------------------------------------------------------------
 
-def test_voice_model_is_pandora(cfg):
-    """British female aura-2 voice — locked per customer request.
+def test_voice_model_is_flux_gemma(cfg):
+    """British female voice — locked per customer request.
 
-    Note: aura-2-athena-en is documented en-gb but does not actually read as
-    British (confirmed by ear, 2026-05-11). Pandora is the chosen voice; if
-    the Deepgram catalog changes, re-audition before updating this assertion.
+    Flux TTS (Speak v2) Gemma, catalogued accent "British", tag "feminine" by
+    GET https://api.deepgram.com/v2/models (checked 2026-10-05); it
+    replaced aura-2-pandora-en on 2026-10-05. (aura-2-athena-en is documented
+    en-gb but does not read as British by ear.) If the Deepgram catalog
+    changes, re-audition before updating this assertion.
     """
-    assert cfg["voiceModel"] == "aura-2-pandora-en"
+    assert cfg["voiceModel"] == "flux-gemma-en"
+
+
+def test_speak_provider_routes_flux_to_v2():
+    from client import speak_provider
+    assert speak_provider("flux-gemma-en") == {"type": "deepgram", "version": "v2", "model": "flux-gemma-en"}
+    assert speak_provider("aura-2-pandora-en")["version"] == "v1"
+
+
+def test_agent_settings_speak_with_flux_v2():
+    """The Settings payload actually sent, not just the helper, selects Speak v2."""
+    from client import build_settings
+    assert build_settings()["agent"]["speak"]["provider"] == {
+        "type": "deepgram", "version": "v2", "model": "flux-gemma-en"}
 
 
 def test_hotword_is_hey_eve(cfg):

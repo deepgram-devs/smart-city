@@ -40,6 +40,16 @@ AUDIO_SETTINGS = {
 
 HOTWORD_BYPASS = {"check_hotword", "close_hotword_session"}
 
+
+def speak_provider(model: str) -> dict:
+    """Voice Agent speak provider for a Deepgram TTS model, routed by name prefix.
+
+    Flux TTS (``flux-{voice}-{lang}``) is Speak v2, so DO NOT drop ``version``:
+    the agent picks the TTS engine by it, and v1 is the Aura (``aura-*``) path.
+    """
+    version = "v2" if model.startswith("flux-") else "v1"
+    return {"type": "deepgram", "version": version, "model": model}
+
 # Flask setup
 app = Flask(__name__, static_folder="./static", static_url_path="/static")
 socketio = SocketIO(app, cors_allowed_origins="*")
@@ -105,7 +115,7 @@ def build_settings() -> dict:
                 "prompt": system_prompt,
                 "functions": functions,
             },
-            "speak": {"provider": {"type": "deepgram", "model": cfg["voiceModel"]}},
+            "speak": {"provider": speak_provider(cfg["voiceModel"])},
             "greeting": greeting,
         },
     }
