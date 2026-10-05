@@ -38,21 +38,21 @@ def cfg() -> dict:
 # Voice + hotword: the wake word the customer says, and the voice they hear.
 # ---------------------------------------------------------------------------
 
-def test_voice_model_is_flux_gemma(cfg):
-    """British female voice — locked per customer request.
+def test_voice_model_is_flux_sienna(cfg):
+    """Flux TTS (Speak v2) Sienna, American female, chosen by Jake 2026-10-05.
 
-    Flux TTS (Speak v2) Gemma, catalogued accent "British", tag "feminine" by
-    GET https://api.deepgram.com/v2/models (checked 2026-10-05); it
-    replaced aura-2-pandora-en on 2026-10-05. (aura-2-athena-en is documented
-    en-gb but does not read as British by ear.) If the Deepgram catalog
-    changes, re-audition before updating this assertion.
+    History, so nobody re-litigates it: the customer first asked for a British
+    female voice. aura-2-athena-en is catalogued en-gb but did not read as
+    British. aura-2-pandora-en did, then flux-gemma-en replaced it but read as
+    Cockney rather than neutral British and was dropped for Sienna.
+    Re-audition before changing this.
     """
-    assert cfg["voiceModel"] == "flux-gemma-en"
+    assert cfg["voiceModel"] == "flux-sienna-en"
 
 
 def test_speak_provider_routes_flux_to_v2():
     from client import speak_provider
-    assert speak_provider("flux-gemma-en") == {"type": "deepgram", "version": "v2", "model": "flux-gemma-en"}
+    assert speak_provider("flux-sienna-en") == {"type": "deepgram", "version": "v2", "model": "flux-sienna-en"}
     assert speak_provider("aura-2-pandora-en")["version"] == "v1"
 
 
@@ -60,7 +60,7 @@ def test_agent_settings_speak_with_flux_v2():
     """The Settings payload actually sent, not just the helper, selects Speak v2."""
     from client import build_settings
     assert build_settings()["agent"]["speak"]["provider"] == {
-        "type": "deepgram", "version": "v2", "model": "flux-gemma-en"}
+        "type": "deepgram", "version": "v2", "model": "flux-sienna-en"}
 
 
 def test_hotword_is_hey_eve(cfg):
