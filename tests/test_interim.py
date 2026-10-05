@@ -76,6 +76,7 @@ def test_unchanged_updates_are_not_re_emitted_but_end_of_turn_always_is(monkeypa
         _turn("Update", "systems online"), _turn("EndOfTurn", "systems online"),
     ])
     monkeypatch.setattr(it.websockets, "connect", _connect_to(sock))
+    monkeypatch.setattr(it.InterimTranscriber, "RETRY_DELAYS", ())
 
     async def exercise():
         tr = it.InterimTranscriber(emitted.append)
@@ -112,11 +113,12 @@ def test_connect_failure_is_swallowed_and_feed_becomes_a_noop(monkeypatch):
         raise OSError("refused")
 
     monkeypatch.setattr(it.websockets, "connect", refuse)
+    monkeypatch.setattr(it.InterimTranscriber, "RETRY_DELAYS", (0, 0))
 
     async def exercise():
         tr = it.InterimTranscriber(lambda _e: None)
         tr.start("key", ["Eve"], 16000)
-        await asyncio.wait_for(tr._task, 1)  # finished, did not raise
+        await asyncio.wait_for(tr._task, 1)  # gave up after retries, did not raise
         assert tr._task.exception() is None
         tr.feed(b"\x00" * 640)
         assert tr._queue.empty()  # nothing buffered for a dead stream
@@ -150,3 +152,26 @@ def test_sender_feeds_mic_audio_to_agent_and_captions():
         assert fed == [b"pcm"]
 
     asyncio.run(exercise())
+
+
+def test_dropped_stream_reconnects_and_captions_resume(monkeypatch):
+    emitted = []
+    attempts = []
+
+    async def flaky(*_a, **_k):
+        attempts.append(1)
+        if len(attempts) == 1:
+            raise OSError("network blip")
+        return _FakeFluxSocket([_turn("Update", "back again", turn=4)])
+
+    monkeypatch.setattr(it.websockets, "connect", flaky)
+    monkeypatch.setattr(it.InterimTranscriber, "RETRY_DELAYS", (0,))
+
+    async def exercise():
+        tr = it.InterimTranscriber(emitted.append)
+        tr.start("key", ["Eve"], 16000)
+        await asyncio.wait_for(tr._task, 1)
+
+    asyncio.run(exercise())
+    assert len(attempts) == 2
+    assert [e["text"] for e in emitted] == ["back again"]

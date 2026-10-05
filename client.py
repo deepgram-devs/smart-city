@@ -439,15 +439,17 @@ class VoiceAgent:
             self.is_running = False
             for task in self._background_calls:
                 task.cancel()
-            if self._background_calls:
-                await asyncio.gather(*self._background_calls, return_exceptions=True)
-            # Agent socket first: it matters more, and a second cancellation
-            # during the caption close must not skip it.
+            # Each step guarded, so a cancellation landing mid-cleanup cannot
+            # skip the socket closes. Agent socket first: it matters more.
             try:
-                if self.ws:
-                    await self.ws.close()
+                if self._background_calls:
+                    await asyncio.gather(*self._background_calls, return_exceptions=True)
             finally:
-                await self.interim.close()
+                try:
+                    if self.ws:
+                        await self.ws.close()
+                finally:
+                    await self.interim.close()
 
 
 # ---------------------------------------------------------------------------

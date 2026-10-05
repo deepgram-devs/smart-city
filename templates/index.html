@@ -654,12 +654,15 @@ socket.on('stop_audio_output', () => {
 // ---------------------------------------------------------------------------
 // Live user caption from the parallel Flux STT stream (server: user_interim).
 // One bubble, updated in place, removed when the agent's final user turn lands.
-// If the agent never posts that turn (noise, echo), the caption expires on its
-// own a few seconds after the turn's end. The timer is cancelled by any newer
-// caption, so a late expiry can never remove the NEXT turn's caption.
-const INTERIM_EXPIRY_MS = 4000;
+// - Captions for a turn the agent already posted are ignored (Flux turn index),
+//   so a late caption cannot duplicate a finished turn.
+// - A caption expires on its own if it stops updating (noise, echo, or a turn
+//   the agent never posts): quickly after its end of turn, later mid-turn.
+const INTERIM_EXPIRY_MS = { final: 4000, live: 8000 };
 let interimBubble = null;
 let interimExpiry = null;
+let interimTurn = null;      // Flux turn index shown in the bubble
+let postedTurn = -1;         // highest turn the agent has already posted
 
 function clearInterim() {
   clearTimeout(interimExpiry);
@@ -669,10 +672,11 @@ function clearInterim() {
 }
 
 socket.on('user_interim', (data) => {
+  if (data.turn != null && data.turn <= postedTurn) return;
   clearTimeout(interimExpiry);
-  interimExpiry = null;
   if (!data.text) { clearInterim(); return; }
-  if (data.final) interimExpiry = setTimeout(clearInterim, INTERIM_EXPIRY_MS);
+  interimTurn = data.turn;
+  interimExpiry = setTimeout(clearInterim, data.final ? INTERIM_EXPIRY_MS.final : INTERIM_EXPIRY_MS.live);
   const container = document.getElementById('messages');
   if (!interimBubble) {
     interimBubble = document.createElement('div');
@@ -690,7 +694,10 @@ socket.on('user_interim', (data) => {
 
 socket.on('conversation_update', (msg) => {
   const container = document.getElementById('messages');
-  if (msg.role === 'user') clearInterim();
+  if (msg.role === 'user') {
+    if (interimTurn != null) postedTurn = Math.max(postedTurn, interimTurn);
+    clearInterim();
+  }
   const div = document.createElement('div');
   div.className = `msg ${msg.role}`;
 

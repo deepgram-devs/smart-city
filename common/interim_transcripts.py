@@ -51,9 +51,12 @@ class InterimTranscriber:
       stalled caption connection cannot stall agent audio or barge-in.
     - start() only schedules the connect, so a slow handshake cannot delay
       the agent session.
+    - A dropped caption stream reconnects with backoff, a bounded number of
+      times, so one network blip does not end captions for the session.
     """
 
     QUEUE_CHUNKS = 50  # ~1 s of 20 ms chunks; captions past that are stale anyway
+    RETRY_DELAYS = (1, 2, 4, 8)  # reconnects per session; then captions stay off
 
     def __init__(self, emit):
         self._emit = emit  # emit(payload) -> pushes user_interim to the browser
@@ -73,26 +76,35 @@ class InterimTranscriber:
         self._queue.put_nowait(audio)
 
     async def _run(self, api_key, keyterms, sample_rate) -> None:
-        try:
-            self._ws = await websockets.connect(
-                interim_url(keyterms, sample_rate),
-                extra_headers={"Authorization": f"Token {api_key}"},
-            )
-            # Either side ending (socket closed, send failed) ends both.
-            tasks = [asyncio.create_task(self._pump()), asyncio.create_task(self._receive())]
+        for delay in (0, *self.RETRY_DELAYS):
+            await asyncio.sleep(delay)
             try:
-                done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-                for task in done:
-                    task.result()  # surface the error, if any, to the log below
+                await self._stream(api_key, keyterms, sample_rate)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                logger.warning(f"Interim captions dropped ({exc}); reconnecting")
             finally:
-                for task in tasks:
-                    task.cancel()
-        except asyncio.CancelledError:
-            raise
-        except Exception as exc:
-            logger.warning(f"Interim captions stopped: {exc}")
+                await self._close_socket()
+        logger.warning("Interim captions off for this session after repeated failures")
+
+    async def _stream(self, api_key, keyterms, sample_rate) -> None:
+        self._ws = await websockets.connect(
+            interim_url(keyterms, sample_rate),
+            extra_headers={"Authorization": f"Token {api_key}"},
+        )
+        # Either side ending (socket closed, send failed) ends both.
+        tasks = [asyncio.create_task(self._pump()), asyncio.create_task(self._receive())]
+        try:
+            await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
         finally:
-            await self._close_socket()
+            for task in tasks:
+                task.cancel()
+            # Retrieve every outcome so none is reported as "never retrieved".
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+        errors = [r for r in results if isinstance(r, Exception)]
+        if errors:
+            raise errors[0]
 
     async def _pump(self) -> None:
         while True:
@@ -118,14 +130,14 @@ class InterimTranscriber:
             pass
         finally:
             try:
-                await ws.close()
+                await asyncio.wait_for(ws.close(), 1)  # library default waits up to 10 s
             except Exception:
                 pass
 
     async def close(self) -> None:
         if self._task and not self._task.done():
             self._task.cancel()
-            # Bounded wait for _run's finally (which closes the socket). Do not
-            # `await self._task` under a blanket except: that would also swallow
-            # a cancellation aimed at close() itself.
+            # Bounded wait for _run's finally (which closes the socket; at most
+            # 0.5 s + 1 s). Do not `await self._task` under a blanket except:
+            # that would also swallow a cancellation aimed at close() itself.
             await asyncio.wait([self._task], timeout=2)
