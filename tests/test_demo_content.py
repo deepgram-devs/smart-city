@@ -1,13 +1,14 @@
 """Customer-facing content contract.
 
-These tests guard the demo persona that ships to customers: the hotword, the
-TTS voice, and the management-team names the agent speaks. A future refactor
-that accidentally reverts any of these would silently change what the customer
-hears — pytest catches that here, since the structural tests in
+These tests guard the demo persona that ships to customers: the hotword and
+the management-team names the agent speaks. The TTS voice is deliberately NOT
+pinned (it is meant to become dynamic); only its Speak v1/v2 routing is
+tested. A future refactor that accidentally reverts any of these would
+silently change what the customer hears — pytest catches that here, since the structural tests in
 test_function_consistency.py only check dict-key sync.
 
 Keep this file in sync with whatever the customer signed off on: when a name
-or voice changes, update both the source of truth (configs/saga.json plus
+changes, update both the source of truth (configs/saga.json plus
 saga/mock_data.py:MANAGEMENT_STAKEHOLDERS) and the assertions below.
 """
 
@@ -35,20 +36,8 @@ def cfg() -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Voice + hotword: the wake word the customer says, and the voice they hear.
+# Voice routing + hotword: how the voice is selected, and the wake word.
 # ---------------------------------------------------------------------------
-
-def test_voice_model_is_flux_sienna(cfg):
-    """Flux TTS (Speak v2) Sienna, American female, chosen by Jake 2026-10-05.
-
-    History, so nobody re-litigates it: the customer first asked for a British
-    female voice. aura-2-athena-en is catalogued en-gb but did not read as
-    British. aura-2-pandora-en did, then flux-gemma-en replaced it but read as
-    Cockney rather than neutral British and was dropped for Sienna.
-    Re-audition before changing this.
-    """
-    assert cfg["voiceModel"] == "flux-sienna-en"
-
 
 def test_speak_provider_routes_flux_to_v2():
     from client import speak_provider
@@ -56,11 +45,13 @@ def test_speak_provider_routes_flux_to_v2():
     assert speak_provider("aura-2-pandora-en")["version"] == "v1"
 
 
-def test_agent_settings_speak_with_flux_v2():
-    """The Settings payload actually sent, not just the helper, selects Speak v2."""
+def test_agent_settings_speak_uses_configured_voice_with_version(cfg):
+    """The Settings payload actually sent routes the configured voice through
+    speak_provider; any voice, as long as the Speak version rides along."""
     from client import build_settings
-    assert build_settings()["agent"]["speak"]["provider"] == {
-        "type": "deepgram", "version": "v2", "model": "flux-sienna-en"}
+    provider = build_settings()["agent"]["speak"]["provider"]
+    assert provider["model"] == cfg["voiceModel"]
+    assert provider["version"] == ("v2" if cfg["voiceModel"].startswith("flux-") else "v1")
 
 
 def test_hotword_is_hey_eve(cfg):
