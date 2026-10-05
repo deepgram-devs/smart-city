@@ -22,6 +22,7 @@ from common.agent_functions import (
     is_conversation_active,
     check_hotword,
 )
+from common.interim_transcripts import FLUX_STT_MODEL, InterimTranscriber
 from saga.functions import SAGA_FUNCTION_MAP, get_random_filler
 from saga.definitions import SAGA_FUNCTION_DEFINITIONS
 from saga.mock_data import get_city_state, log_action, reset_city_state
@@ -119,7 +120,9 @@ def build_settings() -> dict:
         "audio": AUDIO_SETTINGS,
         "agent": {
             "language": cfg.get("language", "en"),
-            "listen": {"provider": {"type": "deepgram", "model": "nova-3", "keyterms": keyterms}},
+            # Same Flux model as the interim-caption stream, so both cut turns
+            # identically (see common/interim_transcripts.py).
+            "listen": {"provider": {"type": "deepgram", "version": "v2", "model": FLUX_STT_MODEL, "keyterms": keyterms}},
             "think": {
                 "provider": {"type": "open_ai", "model": "gpt-5.4-nano", "temperature": 0.7},
                 "prompt": system_prompt,
@@ -146,6 +149,7 @@ class VoiceAgent:
         self._greeting_done = False  # True after first user utterance; gates output suppression
         self._background_calls = set()
         self.voice = None  # VoiceSettings, set from the Settings actually sent
+        self.interim = InterimTranscriber(lambda event: socketio.emit("user_interim", event))
 
     @property
     def is_stale(self):
@@ -175,6 +179,9 @@ class VoiceAgent:
             })
             logger.info(f"Connected. Sending settings ({len(settings['agent']['think']['functions'])} functions)")
             await self.ws.send(json.dumps(settings))
+            await self.interim.start(
+                api_key, settings["agent"]["listen"]["provider"]["keyterms"], AUDIO_SAMPLE_RATE,
+            )
             return True
         except Exception as e:
             logger.error(f"Failed to connect to Deepgram: {e}")
@@ -219,6 +226,7 @@ class VoiceAgent:
                         logger.info(f"Sending first audio chunk to Deepgram: {len(data)} bytes")
                         first_chunk = False
                     await self.ws.send(data)
+                    await self.interim.send(data)
         except Exception as e:
             logger.error(f"Sender error: {e}")
 
@@ -426,6 +434,7 @@ class VoiceAgent:
                 task.cancel()
             if self._background_calls:
                 await asyncio.gather(*self._background_calls, return_exceptions=True)
+            await self.interim.close()
             if self.ws:
                 await self.ws.close()
 

@@ -266,6 +266,10 @@
     border: 1px solid rgba(74,158,255,0.1);
   }
 
+  /* Live caption while the user is still talking; replaced by the final turn. */
+  .msg.user.interim { opacity: 0.6; font-style: italic; }
+  .msg.user.interim .msg-label::after { content: ' · live'; }
+
   .msg-label {
     font-size: 9px; color: var(--text-muted); margin-bottom: 2px;
     font-weight: 500; letter-spacing: 0.5px;
@@ -648,8 +652,35 @@ socket.on('stop_audio_output', () => {
 // ---------------------------------------------------------------------------
 // Conversation transcript
 // ---------------------------------------------------------------------------
+// Live user caption from the parallel Flux STT stream (server: user_interim).
+// One bubble, updated in place, removed when the agent's final user turn lands.
+let interimBubble = null;
+
+function clearInterim() {
+  if (interimBubble) interimBubble.remove();
+  interimBubble = null;
+}
+
+socket.on('user_interim', (data) => {
+  if (!data.text) { clearInterim(); return; }
+  const container = document.getElementById('messages');
+  if (!interimBubble) {
+    interimBubble = document.createElement('div');
+    interimBubble.className = 'msg user interim';
+    const label = document.createElement('div');
+    label.className = 'msg-label';
+    label.textContent = 'YOU';
+    interimBubble.appendChild(label);
+    interimBubble.appendChild(document.createElement('div'));
+    container.appendChild(interimBubble);
+  }
+  interimBubble.lastChild.textContent = data.text;
+  container.scrollTop = container.scrollHeight;
+});
+
 socket.on('conversation_update', (msg) => {
   const container = document.getElementById('messages');
+  if (msg.role === 'user') clearInterim();
   const div = document.createElement('div');
   div.className = `msg ${msg.role}`;
 
