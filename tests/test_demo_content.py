@@ -2,8 +2,8 @@
 
 These tests guard the demo persona that ships to customers: the hotword and
 the management-team names the agent speaks. The TTS voice is deliberately NOT
-pinned (it is meant to become dynamic); only its Speak v1/v2 routing is
-tested. A future refactor that accidentally reverts any of these would
+pinned (it is meant to become dynamic, and is live-switchable via
+update_voice); voice routing and control are tested in test_voice.py. A future refactor that accidentally reverts any of these would
 silently change what the customer hears — pytest catches that here, since the structural tests in
 test_function_consistency.py only check dict-key sync.
 
@@ -36,23 +36,8 @@ def cfg() -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Voice routing + hotword: how the voice is selected, and the wake word.
+# Hotword: the wake word the customer says.
 # ---------------------------------------------------------------------------
-
-def test_speak_provider_routes_flux_to_v2():
-    from client import speak_provider
-    assert speak_provider("flux-sienna-en") == {"type": "deepgram", "version": "v2", "model": "flux-sienna-en"}
-    assert speak_provider("aura-2-pandora-en")["version"] == "v1"
-
-
-def test_agent_settings_speak_uses_configured_voice_with_version(cfg):
-    """The Settings payload actually sent routes the configured voice through
-    speak_provider; any voice, as long as the Speak version rides along."""
-    from client import build_settings
-    provider = build_settings()["agent"]["speak"]["provider"]
-    assert provider["model"] == cfg["voiceModel"]
-    assert provider["version"] == ("v2" if cfg["voiceModel"].startswith("flux-") else "v1")
-
 
 def test_hotword_is_hey_eve(cfg):
     assert cfg["hotword"] == "Hey Eve"

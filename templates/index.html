@@ -704,6 +704,7 @@ socket.on('city_state_update', (state) => {
 
 // Widget title overrides (fallback: auto-humanize function name)
 const WIDGET_TITLES = {
+  update_voice: 'Deepgram Voice Config',
   get_weather_alert: 'Weather Alert',
   activate_flood_gates: 'Flood Gates',
   book_pod: 'Transit Pod',
@@ -1067,6 +1068,7 @@ const FUNCTION_TOAST = {
   analyze_energy_spike: (r) => ({ title: 'Spike', detail: `${r.zone}: ${r.status}`, color: 'amber' }),
   analyze_revenue: (r) => ({ title: 'Revenue', detail: `${r.source}: ${r.formatted}`, color: 'accent' }),
   create_projection: (r) => ({ title: 'Projection', detail: `${r.projection_years}yr: ${r.formatted}`, color: 'accent' }),
+  update_voice: (r) => ({ title: 'Voice Updated', detail: `${r.voice} · ${r.speed} · ${r.expressivity}`, color: 'accent' }),
 };
 
 socket.on('function_executed', (data) => {

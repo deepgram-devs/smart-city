@@ -24,7 +24,16 @@ from common.agent_functions import (
 )
 from saga.functions import SAGA_FUNCTION_MAP, get_random_filler
 from saga.definitions import SAGA_FUNCTION_DEFINITIONS
-from saga.mock_data import get_city_state, reset_city_state
+from saga.mock_data import get_city_state, log_action, reset_city_state
+from saga.voice import (
+    UPDATE_VOICE_DEFINITION,
+    VOICE_CONTROL_PROMPT,
+    VoiceSettings,
+    apply_voice_update,
+    speak_provider,
+    style_directive,
+    voice_summary,
+)
 
 load_dotenv()
 
@@ -40,15 +49,15 @@ AUDIO_SETTINGS = {
 
 HOTWORD_BYPASS = {"check_hotword", "close_hotword_session"}
 
-
-def speak_provider(model: str) -> dict:
-    """Voice Agent speak provider for a Deepgram TTS model, routed by name prefix.
-
-    Flux TTS (``flux-{voice}-{lang}``) is Speak v2, so DO NOT drop ``version``:
-    the agent picks the TTS engine by it, and v1 is the Aura (``aura-*``) path.
-    """
-    version = "v2" if model.startswith("flux-") else "v1"
-    return {"type": "deepgram", "version": version, "model": model}
+# check_hotword answer when the server already activated on this utterance.
+ALREADY_ACTIVE_THIS_TURN = {
+    "active": True,
+    "freshly_activated": False,
+    "instruction": (
+        "Already activated for this utterance. Do not repeat any function you "
+        "already called this turn; finish the request and respond."
+    ),
+}
 
 # Flask setup
 app = Flask(__name__, static_folder="./static", static_url_path="/static")
@@ -83,7 +92,8 @@ def build_settings() -> dict:
     # mid-conversation, not only at activation.
     keyterms = [hotword, hotword.split()[-1]] if hotword else [cfg["voiceName"]]
 
-    functions = list(SAGA_FUNCTION_DEFINITIONS)
+    functions = list(SAGA_FUNCTION_DEFINITIONS) + [UPDATE_VOICE_DEFINITION]
+    system_prompt += VOICE_CONTROL_PROMPT
     if hotword:
         system_prompt += (
             f"\n\nHOTWORD ACTIVATION (CRITICAL RULE):\n"
@@ -115,7 +125,7 @@ def build_settings() -> dict:
                 "prompt": system_prompt,
                 "functions": functions,
             },
-            "speak": {"provider": speak_provider(cfg["voiceModel"])},
+            "speak": {"provider": speak_provider(VoiceSettings(model=cfg["voiceModel"]))},
             "greeting": greeting,
         },
     }
@@ -135,6 +145,7 @@ class VoiceAgent:
         self.loop = None
         self._greeting_done = False  # True after first user utterance; gates output suppression
         self._background_calls = set()
+        self.voice = None  # VoiceSettings, set from the Settings actually sent
 
     @property
     def is_stale(self):
@@ -158,6 +169,10 @@ class VoiceAgent:
                 extra_headers={"Authorization": f"Token {api_key}"},
             )
             settings = build_settings()
+            self.voice = VoiceSettings(**{
+                k: v for k, v in settings["agent"]["speak"]["provider"].items()
+                if k in ("model", "speed", "expressivity")
+            })
             logger.info(f"Connected. Sending settings ({len(settings['agent']['think']['functions'])} functions)")
             await self.ws.send(json.dumps(settings))
             return True
@@ -177,6 +192,22 @@ class VoiceAgent:
                 "type": "InjectAgentMessage",
                 "message": filler,
             }))
+
+    async def _update_voice(self, params):
+        """Reconfigure Deepgram TTS and the LLM's writing style mid-session.
+
+        Sent BEFORE the FunctionCallResponse so the spoken confirmation already
+        uses the new voice. Values arrive clamped by apply_voice_update, because
+        an out-of-range value makes Deepgram close the socket.
+        """
+        new = apply_voice_update(self.voice, params)
+        if speak_provider(new) != speak_provider(self.voice):
+            await self.ws.send(json.dumps({"type": "UpdateSpeak", "speak": {"provider": speak_provider(new)}}))
+        if new.expressivity != self.voice.expressivity:
+            await self.ws.send(json.dumps({"type": "UpdatePrompt", "prompt": style_directive(new)}))
+        self.voice = new
+        log_action(f"Voice: {new.model} {new.speed:.2f}x expressivity {new.expressivity:+d}")
+        return voice_summary(new)
 
     async def sender(self):
         try:
@@ -221,6 +252,12 @@ class VoiceAgent:
         try:
             self.speaker = Speaker()
             last_user_transcript = ""
+            # Set when the server auto-activates the hotword for the current user
+            # turn. The model often calls check_hotword for that same utterance
+            # right after; re-running it would see "Hey Eve" again, count it as a
+            # fresh activation, inject a SECOND filler, and tell the model to
+            # re-call every function. Cleared at each new user utterance.
+            auto_activated_this_turn = False
             with self.speaker:
                 async for message in self.ws:
                     if isinstance(message, str):
@@ -237,6 +274,7 @@ class VoiceAgent:
                             if role == "user":
                                 self._greeting_done = True
                                 last_user_transcript = content
+                                auto_activated_this_turn = False
                             # Suppress assistant text when hotword not active (after greeting)
                             if role == "assistant" and self._greeting_done and not is_conversation_active():
                                 logger.info(f"Suppressed: {content[:60]}")
@@ -259,6 +297,7 @@ class VoiceAgent:
                                 if last_user_transcript:
                                     auto_result = await check_hotword({"transcript": last_user_transcript})
                                     if auto_result.get("active"):
+                                        auto_activated_this_turn = True
                                         logger.info(f"Auto-activated hotword from transcript: {last_user_transcript[:50]}")
                                         await self._handle_hotword_activation(auto_result)
 
@@ -272,6 +311,15 @@ class VoiceAgent:
                                     }))
                                     continue
 
+                            if fn_name == "check_hotword" and auto_activated_this_turn:
+                                await self.ws.send(json.dumps({
+                                    "type": "FunctionCallResponse",
+                                    "id": fn_id,
+                                    "name": fn_name,
+                                    "content": json.dumps(ALREADY_ACTIVE_THIS_TURN),
+                                }))
+                                continue
+
                             func = FUNCTION_MAP.get(fn_name)
                             if func and fn_name == "process_payment":
                                 task = asyncio.create_task(
@@ -280,7 +328,9 @@ class VoiceAgent:
                                 self._background_calls.add(task)
                                 task.add_done_callback(self._background_calls.discard)
                                 continue
-                            if func:
+                            if fn_name == UPDATE_VOICE_DEFINITION["name"]:
+                                result = await self._update_voice(params)
+                            elif func:
                                 result = await func(params)
                             else:
                                 result = {"error": f"Unknown function: {fn_name}"}
