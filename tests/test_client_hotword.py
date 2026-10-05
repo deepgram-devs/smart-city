@@ -55,6 +55,7 @@ def _run(monkeypatch, frames):
     agent_functions.set_hotword("Hey Eve")
     agent = client.VoiceAgent()
     agent.voice = client.VoiceSettings(model="flux-sienna-en")
+    agent._base_think = {"provider": {"type": "open_ai", "model": "m"}, "prompt": "BASE"}
     agent.ws = _FakeWebSocket(frames)
     asyncio.run(agent.receiver())
     return agent.ws.sent
@@ -81,6 +82,18 @@ def test_model_check_hotword_after_auto_activation_is_not_a_second_activation(mo
     hotword = _response(sent, "h1")
     assert hotword["freshly_activated"] is False
     assert "Do not repeat" in hotword["instruction"]
+
+
+def test_model_calling_check_hotword_twice_in_one_turn_fills_once(monkeypatch):
+    utterance = "Hey Eve, how is the grid?"
+    sent = _run(monkeypatch, [
+        _user(utterance),
+        _call("h1", "check_hotword", {"transcript": utterance}),
+        _call("h2", "check_hotword", {"transcript": utterance}),
+    ])
+    assert len(_fillers(sent)) == 1
+    assert _response(sent, "h1")["freshly_activated"] is True
+    assert _response(sent, "h2")["freshly_activated"] is False
 
 
 def test_next_utterance_with_hotword_activates_normally(monkeypatch):

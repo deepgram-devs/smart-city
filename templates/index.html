@@ -654,15 +654,25 @@ socket.on('stop_audio_output', () => {
 // ---------------------------------------------------------------------------
 // Live user caption from the parallel Flux STT stream (server: user_interim).
 // One bubble, updated in place, removed when the agent's final user turn lands.
+// If the agent never posts that turn (noise, echo), the caption expires on its
+// own a few seconds after the turn's end. The timer is cancelled by any newer
+// caption, so a late expiry can never remove the NEXT turn's caption.
+const INTERIM_EXPIRY_MS = 4000;
 let interimBubble = null;
+let interimExpiry = null;
 
 function clearInterim() {
+  clearTimeout(interimExpiry);
+  interimExpiry = null;
   if (interimBubble) interimBubble.remove();
   interimBubble = null;
 }
 
 socket.on('user_interim', (data) => {
+  clearTimeout(interimExpiry);
+  interimExpiry = null;
   if (!data.text) { clearInterim(); return; }
+  if (data.final) interimExpiry = setTimeout(clearInterim, INTERIM_EXPIRY_MS);
   const container = document.getElementById('messages');
   if (!interimBubble) {
     interimBubble = document.createElement('div');

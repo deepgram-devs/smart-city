@@ -1,7 +1,7 @@
 """Live voice control: Deepgram speak settings plus the matching LLM writing style.
 
 update_voice changes how Eve sounds mid-session with two Voice Agent messages:
-UpdateSpeak (the TTS engine's voice, speed, expressivity) and UpdatePrompt (how
+UpdateSpeak (the TTS engine's voice, speed, expressivity) and UpdateThink (how
 the think model writes, since punctuation and word choice drive delivery too).
 
 Live-verified on agent.deepgram.com, 2026-10-05:
@@ -10,9 +10,15 @@ Live-verified on agent.deepgram.com, 2026-10-05:
 - An out-of-range expressivity (5) gets NO error event: Deepgram just closes
   the socket and the demo dies. So DO NOT pass model-authored values through;
   every value is clamped to the documented range here first.
-- UpdatePrompt APPENDS to the prompt rather than replacing it, so each style
-  directive says it supersedes the previous one.
+- DO NOT use UpdatePrompt for the style: it APPENDS, so every change would
+  stack another directive. UpdateThink REPLACES the prompt (a rule set by one
+  UpdateThink was gone after the next) and keeps conversation history, so the
+  prompt is always base + the one current style section.
+- DO NOT give integer params an "enum": Gemini think models reject the whole
+  function list ("Failed to think"). Use minimum/maximum.
 """
+
+import math
 
 from dataclasses import dataclass, replace
 
@@ -90,6 +96,14 @@ def _clamp(value, lo, hi):
     return max(lo, min(hi, value))
 
 
+def _finite(value) -> float:
+    """float(value), raising ValueError for NaN/inf (json.loads accepts both)."""
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError(f"not finite: {value!r}")
+    return number
+
+
 def apply_voice_update(current: VoiceSettings, params: dict) -> VoiceSettings:
     """New settings from model-authored params, every value forced into range.
 
@@ -99,13 +113,13 @@ def apply_voice_update(current: VoiceSettings, params: dict) -> VoiceSettings:
     new = current
     if params.get("expressivity") is not None:
         try:
-            level = round(float(params["expressivity"]))
+            level = round(_finite(params["expressivity"]))
             new = replace(new, expressivity=_clamp(level, EXPRESSIVITY_MIN, EXPRESSIVITY_MAX))
         except (TypeError, ValueError):
             pass
     if params.get("speed") is not None:
         try:
-            speed = round(float(params["speed"]) / SPEED_STEP) * SPEED_STEP
+            speed = round(_finite(params["speed"]) / SPEED_STEP) * SPEED_STEP
             new = replace(new, speed=round(_clamp(speed, SPEED_MIN, SPEED_MAX), 2))
         except (TypeError, ValueError):
             pass
@@ -116,21 +130,34 @@ def apply_voice_update(current: VoiceSettings, params: dict) -> VoiceSettings:
 
 
 def style_directive(voice: VoiceSettings) -> str:
-    """UpdatePrompt text. UpdatePrompt appends, so it must supersede earlier ones."""
+    """The prompt's VOICE STYLE section for the current expressivity."""
     return (
-        f"VOICE STYLE UPDATE (supersedes every earlier VOICE STYLE UPDATE): "
-        f"expressivity is now {voice.expressivity} ({EXPRESSIVITY_LABELS[voice.expressivity]}). "
+        f"\n\nVOICE STYLE (current): expressivity {voice.expressivity} "
+        f"({EXPRESSIVITY_LABELS[voice.expressivity]}). "
         f"{STYLE_BY_EXPRESSIVITY[voice.expressivity]} "
         f"All other style rules still apply, including keeping replies to 1-3 sentences."
     )
 
 
-def voice_summary(voice: VoiceSettings) -> dict:
-    """What the dashboard card shows and the model hears back. Rows flash on change."""
+def think_with_style(base_think: dict, voice: VoiceSettings) -> dict:
+    """UpdateThink payload: the session's original think config, with the style
+    section for this expressivity appended to its ORIGINAL prompt (never to a
+    previously styled one, so sections cannot stack)."""
+    prompt = base_think["prompt"]
+    if voice.expressivity != EXPRESSIVITY_DEFAULT:
+        prompt += style_directive(voice)
+    return {**base_think, "prompt": prompt}
+
+
+def voice_summary(voice: VoiceSettings, sent: list[str]) -> dict:
+    """What the dashboard card shows and the model hears back. Rows flash on change.
+
+    ``sent`` names the Deepgram messages actually sent for this change.
+    """
     name = voice.model.removeprefix("flux-").removesuffix("-en")
     accent, gender = FLUX_VOICES.get(name, ("", ""))
     return {
-        "message": "UpdateSpeak + UpdatePrompt",
+        "message": " + ".join(sent) if sent else "no change",
         "provider": f"deepgram · speak {'v2 (Flux TTS)' if is_flux(voice.model) else 'v1 (Aura)'}",
         "model": voice.model,
         "voice": f"{name.title()} ({accent} {gender})".strip() if accent else name.title(),
@@ -160,7 +187,8 @@ UPDATE_VOICE_DEFINITION = {
         "properties": {
             "expressivity": {
                 "type": "integer",
-                "enum": list(range(EXPRESSIVITY_MIN, EXPRESSIVITY_MAX + 1)),
+                "minimum": EXPRESSIVITY_MIN,
+                "maximum": EXPRESSIVITY_MAX,
                 "description": "-2 very calm, -1 calm, 0 default, 1 expressive, 2 very expressive.",
             },
             "speed": {
@@ -184,8 +212,8 @@ VOICE_CONTROL_PROMPT = (
     "you to sound more or less expressive, animated, calm or flat, to speak faster "
     "or slower, or to use a different voice or accent, call update_voice FIRST, then "
     "confirm in one short sentence written in the NEW style. Never merely promise to "
-    "sound different. When a VOICE STYLE UPDATE is appended to these instructions, "
-    "follow the latest one for word choice and punctuation in every later reply. "
+    "sound different. If a VOICE STYLE section appears below, follow it for word "
+    "choice and punctuation in every reply. "
     "update_voice already puts the Deepgram voice config on the dashboard, so do "
     "NOT also call update_dashboard for a voice change."
 )

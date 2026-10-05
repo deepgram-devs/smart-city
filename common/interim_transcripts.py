@@ -44,52 +44,88 @@ def caption_event(msg: dict) -> dict | None:
 
 
 class InterimTranscriber:
+    """Owns the caption socket. Nothing here may block or fail the agent:
+
+    - feed() never awaits: audio goes into a small bounded queue and the
+      oldest chunk is dropped when the caption socket falls behind, so a
+      stalled caption connection cannot stall agent audio or barge-in.
+    - start() only schedules the connect, so a slow handshake cannot delay
+      the agent session.
+    """
+
+    QUEUE_CHUNKS = 50  # ~1 s of 20 ms chunks; captions past that are stale anyway
+
     def __init__(self, emit):
         self._emit = emit  # emit(payload) -> pushes user_interim to the browser
+        self._queue = asyncio.Queue(maxsize=self.QUEUE_CHUNKS)
         self._ws = None
         self._task = None
         self._last = None
 
-    async def start(self, api_key: str, keyterms, sample_rate: int) -> None:
+    def start(self, api_key: str, keyterms, sample_rate: int) -> None:
+        self._task = asyncio.create_task(self._run(api_key, keyterms, sample_rate))
+
+    def feed(self, audio: bytes) -> None:
+        if self._task is None or self._task.done():
+            return
+        if self._queue.full():
+            self._queue.get_nowait()
+        self._queue.put_nowait(audio)
+
+    async def _run(self, api_key, keyterms, sample_rate) -> None:
         try:
             self._ws = await websockets.connect(
                 interim_url(keyterms, sample_rate),
                 extra_headers={"Authorization": f"Token {api_key}"},
             )
-            self._task = asyncio.create_task(self._receive())
-        except Exception as exc:
-            logger.warning(f"Interim captions unavailable: {exc}")
-            self._ws = None
-
-    async def send(self, audio: bytes) -> None:
-        if not self._ws or self._ws.closed:
-            return
-        try:
-            await self._ws.send(audio)
-        except Exception as exc:
-            logger.warning(f"Interim captions stopped: {exc}")
-            self._ws = None
-
-    async def _receive(self) -> None:
-        try:
-            async for raw in self._ws:
-                event = caption_event(json.loads(raw))
-                # Flux repeats an unchanged transcript every update; only
-                # forward changes (and every end of turn).
-                if event and (event["final"] or (event["turn"], event["text"]) != self._last):
-                    self._last = (event["turn"], event["text"])
-                    self._emit(event)
+            # Either side ending (socket closed, send failed) ends both.
+            tasks = [asyncio.create_task(self._pump()), asyncio.create_task(self._receive())]
+            try:
+                done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+                for task in done:
+                    task.result()  # surface the error, if any, to the log below
+            finally:
+                for task in tasks:
+                    task.cancel()
         except asyncio.CancelledError:
             raise
         except Exception as exc:
-            logger.warning(f"Interim captions receiver ended: {exc}")
+            logger.warning(f"Interim captions stopped: {exc}")
+        finally:
+            await self._close_socket()
 
-    async def close(self) -> None:
-        if self._task:
-            self._task.cancel()
-        if self._ws and not self._ws.closed:
+    async def _pump(self) -> None:
+        while True:
+            await self._ws.send(await self._queue.get())
+
+    async def _receive(self) -> None:
+        async for raw in self._ws:
+            event = caption_event(json.loads(raw))
+            # Flux repeats an unchanged transcript every update; only
+            # forward changes (and every end of turn).
+            if event and (event["final"] or (event["turn"], event["text"]) != self._last):
+                self._last = (event["turn"], event["text"])
+                self._emit(event)
+
+    async def _close_socket(self) -> None:
+        ws, self._ws = self._ws, None
+        if ws is None or ws.closed:
+            return
+        try:
+            # Bounded: a peer that stopped draining would hang this send forever.
+            await asyncio.wait_for(ws.send(json.dumps({"type": "CloseStream"})), 0.5)
+        except Exception:
+            pass
+        finally:
             try:
-                await self._ws.send(json.dumps({"type": "CloseStream"}))
-                await self._ws.close()
+                await ws.close()
             except Exception:
                 pass
+
+    async def close(self) -> None:
+        if self._task and not self._task.done():
+            self._task.cancel()
+            # Bounded wait for _run's finally (which closes the socket). Do not
+            # `await self._task` under a blanket except: that would also swallow
+            # a cancellation aimed at close() itself.
+            await asyncio.wait([self._task], timeout=2)

@@ -32,7 +32,7 @@ from saga.voice import (
     VoiceSettings,
     apply_voice_update,
     speak_provider,
-    style_directive,
+    think_with_style,
     voice_summary,
 )
 
@@ -149,6 +149,7 @@ class VoiceAgent:
         self._greeting_done = False  # True after first user utterance; gates output suppression
         self._background_calls = set()
         self.voice = None  # VoiceSettings, set from the Settings actually sent
+        self._base_think = None  # think config as first sent; style changes rebuild from it
         self.interim = InterimTranscriber(lambda event: socketio.emit("user_interim", event))
 
     @property
@@ -179,7 +180,8 @@ class VoiceAgent:
             })
             logger.info(f"Connected. Sending settings ({len(settings['agent']['think']['functions'])} functions)")
             await self.ws.send(json.dumps(settings))
-            await self.interim.start(
+            self._base_think = settings["agent"]["think"]
+            self.interim.start(
                 api_key, settings["agent"]["listen"]["provider"]["keyterms"], AUDIO_SAMPLE_RATE,
             )
             return True
@@ -208,13 +210,17 @@ class VoiceAgent:
         an out-of-range value makes Deepgram close the socket.
         """
         new = apply_voice_update(self.voice, params)
+        sent = []
         if speak_provider(new) != speak_provider(self.voice):
             await self.ws.send(json.dumps({"type": "UpdateSpeak", "speak": {"provider": speak_provider(new)}}))
+            sent.append("UpdateSpeak")
         if new.expressivity != self.voice.expressivity:
-            await self.ws.send(json.dumps({"type": "UpdatePrompt", "prompt": style_directive(new)}))
+            # UpdateThink replaces the prompt; UpdatePrompt would stack (saga/voice.py).
+            await self.ws.send(json.dumps({"type": "UpdateThink", "think": think_with_style(self._base_think, new)}))
+            sent.append("UpdateThink")
         self.voice = new
         log_action(f"Voice: {new.model} {new.speed:.2f}x expressivity {new.expressivity:+d}")
-        return voice_summary(new)
+        return voice_summary(new, sent)
 
     async def sender(self):
         try:
@@ -226,7 +232,7 @@ class VoiceAgent:
                         logger.info(f"Sending first audio chunk to Deepgram: {len(data)} bytes")
                         first_chunk = False
                     await self.ws.send(data)
-                    await self.interim.send(data)
+                    self.interim.feed(data)  # never blocks agent audio
         except Exception as e:
             logger.error(f"Sender error: {e}")
 
@@ -260,12 +266,12 @@ class VoiceAgent:
         try:
             self.speaker = Speaker()
             last_user_transcript = ""
-            # Set when the server auto-activates the hotword for the current user
-            # turn. The model often calls check_hotword for that same utterance
-            # right after; re-running it would see "Hey Eve" again, count it as a
-            # fresh activation, inject a SECOND filler, and tell the model to
-            # re-call every function. Cleared at each new user utterance.
-            auto_activated_this_turn = False
+            # True once the hotword has activated for the current user turn, by
+            # the server's auto-check OR the model's own check_hotword. Any later
+            # check_hotword in the same turn would see "Hey Eve" again, count it
+            # as a fresh activation, inject a SECOND filler, and tell the model
+            # to re-call every function. Cleared at each new user utterance.
+            activated_this_turn = False
             with self.speaker:
                 async for message in self.ws:
                     if isinstance(message, str):
@@ -282,7 +288,7 @@ class VoiceAgent:
                             if role == "user":
                                 self._greeting_done = True
                                 last_user_transcript = content
-                                auto_activated_this_turn = False
+                                activated_this_turn = False
                             # Suppress assistant text when hotword not active (after greeting)
                             if role == "assistant" and self._greeting_done and not is_conversation_active():
                                 logger.info(f"Suppressed: {content[:60]}")
@@ -305,7 +311,7 @@ class VoiceAgent:
                                 if last_user_transcript:
                                     auto_result = await check_hotword({"transcript": last_user_transcript})
                                     if auto_result.get("active"):
-                                        auto_activated_this_turn = True
+                                        activated_this_turn = True
                                         logger.info(f"Auto-activated hotword from transcript: {last_user_transcript[:50]}")
                                         await self._handle_hotword_activation(auto_result)
 
@@ -319,7 +325,7 @@ class VoiceAgent:
                                     }))
                                     continue
 
-                            if fn_name == "check_hotword" and auto_activated_this_turn:
+                            if fn_name == "check_hotword" and activated_this_turn:
                                 await self.ws.send(json.dumps({
                                     "type": "FunctionCallResponse",
                                     "id": fn_id,
@@ -346,6 +352,7 @@ class VoiceAgent:
                             # Emit hotword state changes to frontend
                             if fn_name == "check_hotword":
                                 if result.get("active"):
+                                    activated_this_turn = True
                                     await self._handle_hotword_activation(result)
                                 elif result.get("timed_out"):
                                     # Visual-only transition (no InjectAgentMessage to
@@ -434,9 +441,13 @@ class VoiceAgent:
                 task.cancel()
             if self._background_calls:
                 await asyncio.gather(*self._background_calls, return_exceptions=True)
-            await self.interim.close()
-            if self.ws:
-                await self.ws.close()
+            # Agent socket first: it matters more, and a second cancellation
+            # during the caption close must not skip it.
+            try:
+                if self.ws:
+                    await self.ws.close()
+            finally:
+                await self.interim.close()
 
 
 # ---------------------------------------------------------------------------

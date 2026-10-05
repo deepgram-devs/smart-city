@@ -3,8 +3,9 @@
 These tests guard the demo persona that ships to customers: the hotword and
 the management-team names the agent speaks. The TTS voice is deliberately NOT
 pinned (it is meant to become dynamic, and is live-switchable via
-update_voice); voice routing and control are tested in test_voice.py. A future refactor that accidentally reverts any of these would
-silently change what the customer hears — pytest catches that here, since the structural tests in
+update_voice); voice routing and control are tested in test_voice.py. A future
+refactor that accidentally reverts any of these would silently change what the
+customer hears; pytest catches that here, since the structural tests in
 test_function_consistency.py only check dict-key sync.
 
 Keep this file in sync with whatever the customer signed off on: when a name
