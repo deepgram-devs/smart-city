@@ -1064,6 +1064,10 @@ function createOrUpdateWidget(widgetId, result, title, color, isAlert) {
       }
     });
 
+    // Freshest information on top, same as a new widget: otherwise a card
+    // created early (e.g. Deepgram Voice Config) updates out of sight.
+    container.insertBefore(widget, container.firstChild);
+
     // Re-pulse the card
     widget.classList.remove('pulse-in', 'pulse-in-alert');
     void widget.offsetWidth;
