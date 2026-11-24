@@ -501,6 +501,8 @@ let scriptProcessor = null;
 let nextPlayTime = 0;
 let isRunning = false;
 let hotwordState = 'listening';
+let micAnalyser = null;   // feeds the voice ring while the user talks
+let outAnalyser = null;   // feeds the voice ring while Eve talks
 
 // ---------------------------------------------------------------------------
 // Audio helpers
@@ -536,6 +538,9 @@ async function startSession() {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const source = audioCtx.createMediaStreamSource(stream);
     scriptProcessor = audioCtx.createScriptProcessor(1024, 1, 1);
+    micAnalyser = audioCtx.createAnalyser();
+    micAnalyser.fftSize = 1024;
+    source.connect(micAnalyser);
 
     scriptProcessor.onaudioprocess = (e) => {
       if (!isRunning) return;
@@ -564,6 +569,8 @@ function stopSession() {
   if (scriptProcessor) { scriptProcessor.disconnect(); scriptProcessor = null; }
   if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
   if (audioCtx) { audioCtx.close(); audioCtx = null; }
+  micAnalyser = null;
+  outAnalyser = null;
   nextPlayTime = 0;
   document.getElementById('startBtn').style.display = '';
   document.getElementById('stopBtn').style.display = 'none';
@@ -585,6 +592,8 @@ socket.on('audio_output', (data) => {
   const src = audioCtx.createBufferSource();
   src.buffer = buffer;
   src.connect(audioCtx.destination);
+  if (!outAnalyser) { outAnalyser = audioCtx.createAnalyser(); outAnalyser.fftSize = 1024; }
+  src.connect(outAnalyser);
   const now = audioCtx.currentTime;
   if (nextPlayTime < now) nextPlayTime = now;
   src.start(nextPlayTime);
@@ -1117,30 +1126,36 @@ function showToast({ title, detail, color }) {
 }
 
 // ---------------------------------------------------------------------------
-// Status indicator + visualizer
+// Status indicator + voice ring
 // ---------------------------------------------------------------------------
 function setStatus(state) {
   const dot = document.getElementById('statusDot');
   const label = document.getElementById('statusLabel');
   dot.className = 'status-dot';
-  if (state === 'ambient') { dot.classList.add('ambient'); label.textContent = 'Ambient'; animateViz(false); }
-  else if (state === 'listening') { dot.classList.add('listening'); label.textContent = 'Active'; animateViz(true); }
-  else if (state === 'speaking') { dot.classList.add('active'); label.textContent = 'Speaking'; animateViz(true); }
-  else { label.textContent = 'Offline'; animateViz(false); }
+  if (state === 'ambient') { dot.classList.add('ambient'); label.textContent = 'Ambient'; }
+  else if (state === 'listening') { dot.classList.add('listening'); label.textContent = 'Active'; }
+  else if (state === 'speaking') { dot.classList.add('active'); label.textContent = 'Speaking'; }
+  else { label.textContent = 'Offline'; }
 }
 
-let vizInterval = null;
-function animateViz(on) {
-  const bars = document.querySelectorAll('.viz-bar');
-  if (on && !vizInterval) {
-    vizInterval = setInterval(() => {
-      bars.forEach(b => { const h = 4 + Math.random() * 16; b.style.height = h + 'px'; b.classList.toggle('active', h > 10); });
-    }, 100);
-  } else if (!on && vizInterval) {
-    clearInterval(vizInterval); vizInterval = null;
-    bars.forEach(b => { b.style.height = '4px'; b.classList.remove('active'); });
-  }
+// The ring follows the real audio: Eve's playback while any is queued, the mic otherwise.
+// Its level is the RMS of the analyser's waveform, 0..1, set every frame.
+const ring = document.getElementById('ring');
+const ringData = new Uint8Array(1024);
+function analyserLevel(analyser) {
+  analyser.getByteTimeDomainData(ringData);
+  let sum = 0;
+  for (const v of ringData) sum += ((v - 128) / 128) ** 2;
+  return Math.min(1, Math.sqrt(sum / ringData.length) * 4);
 }
+(function tickRing() {
+  const speaking = isRunning && activeSources.length > 0;
+  const analyser = speaking ? outAnalyser : micAnalyser;
+  ring.level = isRunning && analyser ? analyserLevel(analyser) : 0;
+  const state = speaking ? 'speaking' : 'listening';
+  if (ring.getAttribute('state') !== state) ring.setAttribute('state', state);
+  requestAnimationFrame(tickRing);
+})();
 </script>
 </body>
 </html>
