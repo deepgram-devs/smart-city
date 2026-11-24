@@ -4,96 +4,82 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Eve</title>
+<link rel="icon" href="/static/vdui/logos/deepgram-favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/vdui/brand.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="/static/vdui/ring-element/deepgram-voice-ring.js"></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+  /* Colors, fonts, and the label / glass / stage-glow utilities come from brand.css
+     (Deepgram brand UI kit). This sheet only lays the page out on the kit's stage. */
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  :root {
-    --bg: #0a0a0f;
-    --surface: #12121a;
-    --surface-2: #1a1a25;
-    --surface-3: #22222f;
-    --border: rgba(255,255,255,0.06);
-    --text: #e8e8ed;
-    --text-dim: #6b6b7b;
-    --text-muted: #3d3d4d;
-    --accent: #4a9eff;
-    --accent-glow: rgba(74, 158, 255, 0.15);
-    --green: #34d399;
-    --amber: #fbbf24;
-    --red: #f87171;
-    --radius: 12px;
-  }
-
   html, body {
     height: 100%;
-    font-family: 'Inter', -apple-system, sans-serif;
-    background: var(--bg);
-    color: var(--text);
+    color: var(--color-paper);
     overflow: hidden;
   }
+  body { background-color: var(--color-ink); }
 
   /* Layout: dashboard-forward, transcript compact */
   .app {
     display: grid;
-    grid-template-columns: 1fr 340px 240px;
-    grid-template-rows: 56px 1fr;
+    grid-template-columns: 1fr 360px 260px;
+    grid-template-rows: 64px 1fr;
     height: 100vh;
-    gap: 1px;
-    background: var(--border);
   }
 
   /* Header */
   .header {
     grid-column: 1 / -1;
-    background: var(--surface);
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 16px;
     padding: 0 24px;
+    border-bottom: 1px solid rgb(255 255 255 / 0.1);
   }
 
-  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo { display: flex; align-items: center; gap: 12px; }
 
+  /* Eve's own mark: an outline, the way the kit's example brand marks are drawn */
   .logo-mark {
-    width: 28px; height: 28px; border-radius: 8px;
-    background: linear-gradient(135deg, var(--accent), #7c3aed);
-    display: flex; align-items: center; justify-content: center;
-    font-weight: 600; font-size: 12px; color: white;
+    width: 32px; height: 32px; border-radius: 9px;
+    border: 3px solid var(--color-paper);
+    display: grid; place-items: center;
+    font-family: var(--font-mono); font-weight: 600; font-size: 14px;
   }
 
-  .logo-text { font-size: 15px; font-weight: 600; letter-spacing: 2px; }
-  .logo-sub { font-size: 11px; color: var(--text-dim); font-weight: 400; letter-spacing: 0.5px; }
+  .logo-text { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+  .logo-sub { color: rgb(255 255 255 / 0.7); margin-top: 1px; }
 
-  .header-right { display: flex; align-items: center; gap: 16px; }
+  .header-right { display: flex; align-items: center; gap: 24px; }
+  .status { display: flex; align-items: center; gap: 8px; color: rgb(255 255 255 / 0.85); }
 
   .status-dot {
-    width: 7px; height: 7px; border-radius: 50%;
-    background: var(--text-muted); transition: background 0.3s;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: rgb(255 255 255 / 0.35); transition: background 0.3s;
   }
-  .status-dot.ambient { background: var(--amber); box-shadow: 0 0 6px rgba(251,191,36,0.3); animation: pulse 3s infinite; }
-  .status-dot.active { background: var(--green); box-shadow: 0 0 8px rgba(52,211,153,0.5); }
-  .status-dot.listening { background: var(--accent); box-shadow: 0 0 8px rgba(74,158,255,0.5); animation: pulse 2s infinite; }
+  .status-dot.ambient { background: var(--color-orange); animation: pulse 3s infinite; }
+  .status-dot.active { background: var(--color-lime); }
+  .status-dot.listening { background: var(--color-magenta); animation: pulse 2s infinite; }
 
   @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
 
-  .status-label { font-size: 12px; color: var(--text-dim); }
+  .byline { display: flex; align-items: center; gap: 8px; color: rgb(255 255 255 / 0.7); font-size: 13px; }
+  .byline img { height: 15px; width: auto; display: block; }
 
   /* Panels */
   .panel {
-    background: var(--surface);
     overflow-y: auto;
     scrollbar-width: thin;
-    scrollbar-color: var(--surface-2) transparent;
+    scrollbar-color: rgb(255 255 255 / 0.15) transparent;
   }
 
   .panel-title {
-    font-size: 10px; font-weight: 600; letter-spacing: 1.5px;
-    color: var(--text-muted); text-transform: uppercase;
-    padding: 20px 20px 12px;
+    color: rgb(255 255 255 / 0.8);
+    padding: 22px 20px 12px;
   }
 
   /* ================================================================
@@ -104,269 +90,244 @@
   .widget-container { padding: 0 16px; }
 
   .widget-empty {
-    text-align: center; padding: 48px 20px;
-    color: var(--text-muted); font-size: 12px; line-height: 1.8;
+    text-align: center; padding: 40px 20px 32px;
+    color: rgb(255 255 255 / 0.75); font-size: 14px; line-height: 1.7;
   }
-  .widget-empty-icon {
-    width: 48px; height: 48px; border-radius: 14px; margin: 0 auto 12px;
-    background: var(--surface-2);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 20px; color: var(--text-muted); font-weight: 300;
-  }
+  .widget-empty strong { color: var(--color-paper); font-weight: 600; }
 
-  /* Individual widget card */
+  /* Individual widget card: frosted glass on the stage */
   .widget {
-    background: var(--surface-2);
-    border-radius: var(--radius);
-    margin-bottom: 10px;
-    border: 1px solid transparent;
+    border-radius: 1.5rem;
+    margin-bottom: 12px;
     overflow: hidden;
-    transition: border-color 0.4s, box-shadow 0.4s;
   }
 
-  .widget.pulse-in {
-    animation: widgetPulse 2.5s ease-out;
-  }
-  .widget.pulse-in-alert {
-    animation: widgetPulseAlert 2.5s ease-out;
-  }
-  @keyframes widgetPulse {
-    0% { border-color: var(--accent); box-shadow: 0 0 20px rgba(74,158,255,0.3); }
-    100% { border-color: transparent; box-shadow: none; }
-  }
+  /* A widget the agent just filled glows once, like the kit's focus glow */
+  .widget.pulse-in { animation: var(--animate-glow); }
+  .widget.pulse-in-alert { animation: widgetPulseAlert 2.6s ease-out 1; }
   @keyframes widgetPulseAlert {
-    0% { border-color: var(--red); box-shadow: 0 0 20px rgba(248,113,113,0.3); }
-    100% { border-color: transparent; box-shadow: none; }
+    0% { box-shadow: 0 0 0 0 rgb(235 42 46 / 0.55); }
+    25% { box-shadow: 0 0 0 6px rgb(235 42 46 / 0.35); }
+    100% { box-shadow: 0 0 0 0 rgb(235 42 46 / 0); }
   }
 
   .widget-header {
-    display: flex; align-items: center; gap: 8px;
-    padding: 12px 14px 8px;
+    display: flex; align-items: center; gap: 10px;
+    padding: 16px 18px 10px;
   }
 
   .widget-dot {
-    width: 6px; height: 6px; border-radius: 50%;
-    background: var(--accent); flex-shrink: 0;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--color-ring-blue); flex-shrink: 0;
   }
-  .widget-dot.amber { background: var(--amber); }
-  .widget-dot.red { background: var(--red); }
-  .widget-dot.green { background: var(--green); }
+  .widget-dot.amber { background: var(--color-orange); }
+  .widget-dot.red { background: var(--color-red); }
+  .widget-dot.green { background: var(--color-lime); }
 
-  .widget-title {
-    font-size: 11px; font-weight: 600; letter-spacing: 0.5px;
-    color: var(--text); text-transform: uppercase;
-  }
+  /* Titles come in Title Case from the agent; the label utility sets them in caps */
+  .widget-title { font-family: var(--font-mono); letter-spacing: .08em; text-transform: uppercase; font-size: .75rem; font-weight: 500; line-height: 1rem; color: var(--color-paper); }
 
-  .widget-body { padding: 0 14px 12px; }
+  .widget-body { padding: 0 18px 16px; }
 
   .widget-row {
     display: flex; justify-content: space-between; align-items: baseline;
-    padding: 3px 0; gap: 12px;
+    padding: 4px 0; gap: 12px;
   }
 
   .widget-label {
-    font-size: 11px; color: var(--text-dim);
+    font-size: 13px; color: rgb(255 255 255 / 0.7);
     white-space: nowrap; flex-shrink: 0;
   }
 
   .widget-value {
-    font-size: 11px; font-weight: 500; color: var(--text);
+    font-size: 13px; font-weight: 500; color: var(--color-paper);
     text-align: right; word-break: break-word;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
     transition: color 0.3s;
   }
 
   /* Value flash when widget updates */
-  .widget-value.flash {
-    animation: valFlash 2s ease;
-  }
+  .widget-value.flash { animation: valFlash 2s ease; }
   @keyframes valFlash {
-    0% { color: var(--accent); text-shadow: 0 0 8px rgba(74,158,255,0.4); }
-    100% { color: var(--text); text-shadow: none; }
+    0% { color: var(--color-magenta); }
+    100% { color: var(--color-paper); }
   }
-  .widget-value.flash-alert {
-    animation: valFlashAlert 2s ease;
-  }
+  .widget-value.flash-alert { animation: valFlashAlert 2s ease; }
   @keyframes valFlashAlert {
-    0% { color: var(--red); text-shadow: 0 0 8px rgba(248,113,113,0.4); }
-    100% { color: var(--text); text-shadow: none; }
+    0% { color: var(--color-red); }
+    100% { color: var(--color-paper); }
   }
 
   .widget-divider {
-    height: 1px; background: var(--border); margin: 4px 0;
+    height: 1px; background: rgb(255 255 255 / 0.1); margin: 6px 0;
   }
 
   /* Chart widgets */
   .chart-wrap {
-    position: relative; height: 160px; padding: 4px 2px 2px;
+    position: relative; height: 170px; padding: 4px 2px 2px;
   }
   .chart-wrap canvas { max-width: 100%; }
 
   /* Slide preview grid */
   .slide-grid {
-    display: flex; flex-direction: column; gap: 6px; padding: 2px;
+    display: flex; flex-direction: column; gap: 8px; padding: 2px;
   }
   .slide-card {
-    background: rgba(255,255,255,0.025); border-radius: 8px;
-    padding: 10px 12px; border-left: 2px solid var(--accent);
-    transition: background 0.2s, transform 0.2s;
+    background: rgb(0 0 0 / 0.15); border-radius: 14px;
+    border: 1px solid rgb(255 255 255 / 0.1);
+    padding: 12px 14px;
+    transition: background 0.2s;
   }
-  .slide-card:hover {
-    background: rgba(74,158,255,0.08);
-    transform: translateX(2px);
-  }
+  .slide-card:hover { background: rgb(255 255 255 / 0.08); }
   .slide-num {
-    font-size: 8px; font-weight: 600; color: var(--accent);
-    letter-spacing: 1.2px; margin-bottom: 3px;
+    font-family: var(--font-mono); letter-spacing: .08em; font-size: .65rem; font-weight: 500;
+    color: rgb(255 255 255 / 0.7); margin-bottom: 4px;
   }
   .slide-card-title {
-    font-size: 11px; font-weight: 600; color: var(--text); margin-bottom: 5px;
+    font-size: 13px; font-weight: 600; color: var(--color-paper); margin-bottom: 6px;
   }
   .slide-hero {
-    font-size: 20px; font-weight: 300; color: var(--text);
-    font-family: 'JetBrains Mono', monospace; margin-bottom: 3px;
-    letter-spacing: -0.5px;
+    font-size: 22px; font-weight: 400; color: var(--color-paper);
+    font-family: var(--font-mono); margin-bottom: 4px;
   }
   .slide-caption {
-    font-size: 10px; color: var(--text-dim); line-height: 1.45;
+    font-size: 12px; color: rgb(255 255 255 / 0.75); line-height: 1.45;
   }
 
   /* ================================================================
-     CENTER: Transcript
+     CENTER: The voice session (ring, transcript, controls)
      ================================================================ */
   .conversation {
     display: flex; flex-direction: column;
-    background: var(--bg); min-height: 0; position: relative;
+    min-height: 0; position: relative;
+    margin: 12px 0 16px;
+    border-radius: 1.5rem;
+    padding: 20px 0 0;
   }
+
+  .ring-wrap {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    flex-shrink: 0; padding: 0 20px 12px;
+    border-bottom: 1px solid rgb(255 255 255 / 0.1);
+  }
+  deepgram-voice-ring#ring { width: 9.5rem; height: 9.5rem; display: block; }
 
   .messages {
     flex: 1; overflow-y: auto; min-height: 0;
     padding: 16px 20px;
-    display: flex; flex-direction: column; gap: 8px;
-    scrollbar-width: thin; scrollbar-color: var(--surface-2) transparent;
+    display: flex; flex-direction: column; gap: 14px;
+    scrollbar-width: thin; scrollbar-color: rgb(255 255 255 / 0.15) transparent;
   }
 
   .msg {
-    max-width: 95%; padding: 8px 12px;
-    border-radius: 12px; font-size: 13px; line-height: 1.5;
-    animation: fadeIn 0.2s ease;
-  }
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(4px); }
-    to { opacity: 1; transform: translateY(0); }
+    max-width: 85%; padding: 9px 14px;
+    border-radius: 0.875rem; font-size: 14px; line-height: 1.35;
+    border: 1px solid rgb(255 255 255 / 0.15);
+    animation: var(--animate-rise);
   }
 
   .msg.user {
-    align-self: flex-end; background: var(--surface-2);
-    color: var(--text); border-bottom-right-radius: 4px;
+    align-self: flex-end; background: rgb(255 255 255 / 0.1);
+    color: var(--color-paper);
   }
   .msg.assistant {
-    align-self: flex-start; background: var(--accent-glow);
-    color: var(--text); border-bottom-left-radius: 4px;
-    border: 1px solid rgba(74,158,255,0.1);
+    align-self: flex-start; background: rgb(0 0 0 / 0.1);
+    color: var(--color-paper);
   }
 
   /* Live caption while the user is still talking; replaced by the final turn. */
-  .msg.user.interim { opacity: 0.6; font-style: italic; }
+  .msg.user.interim { border-style: dashed; border-color: rgb(255 255 255 / 0.5); }
+  .msg.user.interim .msg-label::before { content: '\25CF  '; }
   .msg.user.interim .msg-label::after { content: ' · live'; }
 
   .msg-label {
-    font-size: 9px; color: var(--text-muted); margin-bottom: 2px;
-    font-weight: 500; letter-spacing: 0.5px;
+    font-family: var(--font-mono); letter-spacing: .08em; text-transform: uppercase;
+    font-size: .65rem; font-weight: 500; line-height: 1rem;
+    color: rgb(255 255 255 / 0.8); margin-bottom: 4px;
   }
 
   .welcome-state {
     flex: 1; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: 12px; opacity: 0.6;
-  }
-  .welcome-icon {
-    width: 48px; height: 48px; border-radius: 16px;
-    background: linear-gradient(135deg, var(--accent), #7c3aed);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 20px; color: white; font-weight: 300;
+    align-items: center; justify-content: center; gap: 12px;
   }
   .welcome-text {
-    font-size: 12px; color: var(--text-dim); text-align: center; line-height: 1.6;
+    font-size: 15px; color: rgb(255 255 255 / 0.85); text-align: center; line-height: 1.5;
   }
+  .welcome-text strong { color: var(--color-paper); font-weight: 600; }
 
   /* Controls */
   .controls {
-    padding: 10px 20px 16px;
+    padding: 14px 20px 20px;
+    border-top: 1px solid rgb(255 255 255 / 0.1);
     display: flex; align-items: center; justify-content: center; gap: 10px;
   }
 
+  /* Turn on is the screen's one call to action (the kit's CtaButton); Stop is its solid pill */
   .btn {
-    height: 36px; padding: 0 18px; border: none; border-radius: 18px;
-    font-family: inherit; font-size: 12px; font-weight: 500;
-    cursor: pointer; transition: all 0.2s;
-    display: flex; align-items: center; gap: 6px;
+    height: 48px; padding: 0 28px; border-radius: 999px;
+    border: 2px solid transparent;
+    font-family: var(--font-mono); letter-spacing: .08em; text-transform: uppercase;
+    font-size: .8rem; font-weight: 500;
+    cursor: pointer; transition: filter 0.2s, background 0.2s;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   }
-  .btn-primary { background: var(--accent); color: white; }
-  .btn-primary:hover { background: #3a8eef; }
-  .btn-stop { background: rgba(248,113,113,0.12); color: var(--red); }
-  .btn-stop:hover { background: rgba(248,113,113,0.2); }
-
-  .visualizer {
-    width: 80px; height: 24px;
-    display: flex; align-items: center; justify-content: center; gap: 2px;
+  .btn:focus-visible { outline: 2px solid var(--color-magenta); outline-offset: 4px; }
+  .btn-primary {
+    background: var(--color-magenta); color: var(--color-ink);
+    border-color: rgb(255 255 255 / 0.25);
+    box-shadow: 0 0 40px -6px rgb(224 66 255 / 0.7);
   }
-  .viz-bar {
-    width: 2px; height: 4px; background: var(--accent);
-    border-radius: 2px; transition: height 0.1s ease; opacity: 0.4;
-  }
-  .viz-bar.active { opacity: 1; }
+  .btn-primary:hover { filter: brightness(1.1); }
+  .btn-stop { background: var(--color-paper); color: var(--color-ink); }
+  .btn-stop:hover { background: rgb(252 250 248 / 0.9); }
 
   /* Toast notifications */
   .toast-container {
-    position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%);
+    position: absolute; bottom: 92px; left: 50%; transform: translateX(-50%);
     display: flex; flex-direction: column-reverse; gap: 6px;
     z-index: 50; pointer-events: none; width: 90%; max-width: 320px;
   }
   .toast {
-    background: var(--surface); border: 1px solid var(--border);
-    border-left: 3px solid var(--accent); border-radius: 8px;
-    padding: 8px 12px; display: flex; align-items: center; gap: 8px;
-    animation: toastIn 0.3s ease; pointer-events: auto; backdrop-filter: blur(12px);
+    background: rgb(29 29 29 / 0.7); border: 1px solid rgb(255 255 255 / 0.15);
+    border-radius: 14px;
+    padding: 10px 14px; display: flex; align-items: center; gap: 10px;
+    animation: var(--animate-rise); pointer-events: auto;
+    -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
   }
-  .toast.toast-amber { border-left-color: var(--amber); }
-  .toast.toast-red { border-left-color: var(--red); }
-  .toast.toast-green { border-left-color: var(--green); }
   .toast.removing { animation: toastOut 0.3s ease forwards; }
-
-  @keyframes toastIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0); } }
   @keyframes toastOut { from { opacity:1; } to { opacity:0; transform: translateY(-8px); } }
 
   .toast-indicator {
-    width: 5px; height: 5px; border-radius: 50%; background: var(--accent); flex-shrink: 0;
+    width: 8px; height: 8px; border-radius: 50%; background: var(--color-ring-blue); flex-shrink: 0;
   }
-  .toast-amber .toast-indicator { background: var(--amber); }
-  .toast-red .toast-indicator { background: var(--red); }
-  .toast-green .toast-indicator { background: var(--green); }
+  .toast-amber .toast-indicator { background: var(--color-orange); }
+  .toast-red .toast-indicator { background: var(--color-red); }
+  .toast-green .toast-indicator { background: var(--color-lime); }
 
   .toast-body { flex: 1; min-width: 0; }
-  .toast-title { font-size: 10px; font-weight: 500; color: var(--text); }
-  .toast-detail { font-size: 9px; color: var(--text-dim); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .toast-title { font-family: var(--font-mono); letter-spacing: .08em; text-transform: uppercase; font-size: .65rem; font-weight: 500; line-height: 1rem; color: var(--color-paper); }
+  .toast-detail { font-size: 13px; color: rgb(255 255 255 / 0.8); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
   /* ================================================================
-     RIGHT: Scenarios + Activity
+     RIGHT: Activity
      ================================================================ */
   .activity { padding-bottom: 20px; }
 
   .action-item {
-    padding: 8px 16px; border-bottom: 1px solid var(--border);
-    animation: fadeIn 0.3s ease;
+    padding: 10px 20px; border-bottom: 1px solid rgb(255 255 255 / 0.1);
+    animation: var(--animate-rise);
   }
-  .action-time { font-size: 9px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-  .action-text { font-size: 11px; color: var(--text-dim); margin-top: 2px; line-height: 1.4; }
+  .action-time { font-family: var(--font-mono); font-size: 11px; color: var(--color-yellow); font-variant-numeric: tabular-nums; }
+  .action-text { font-size: 13px; color: rgb(255 255 255 / 0.85); margin-top: 3px; line-height: 1.4; }
 
   .scenario-hints { padding: 0 16px; }
   .hint {
-    background: var(--surface-2); border-radius: var(--radius);
-    padding: 14px 16px; margin-bottom: 8px; cursor: default;
+    border-radius: 1.5rem;
+    padding: 16px 18px; margin-bottom: 10px; cursor: default;
   }
-  .hint-num { font-size: 11px; font-weight: 600; color: var(--accent); margin-bottom: 3px; }
-  .hint-title { font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
-  .hint-example { font-size: 13px; color: var(--text-dim); font-style: italic; line-height: 1.4; }
+  .hint-num { color: rgb(255 255 255 / 0.7); margin-bottom: 6px; }
+  .hint-title { font-size: 16px; font-weight: 600; color: var(--color-paper); margin-bottom: 4px; }
+  .hint-example { font-size: 15px; color: rgb(255 255 255 / 0.85); line-height: 1.4; }
 
   /* Responsive */
   @media (max-width: 1024px) {
@@ -374,7 +335,7 @@
 
     .app {
       grid-template-columns: 1fr;
-      grid-template-rows: 56px 1fr auto;
+      grid-template-rows: 64px 1fr auto;
       height: 100dvh;
     }
 
@@ -384,12 +345,18 @@
       display: block;
     }
 
-    /* Transcript panel collapses to just the controls bar */
+    /* The session collapses to a dock: a small ring, its status, and the controls */
     .conversation {
       grid-row: 3; grid-column: 1;
       min-height: 0;
-      border-top: 1px solid var(--border);
+      margin: 0;
+      padding: 12px 20px calc(16px + env(safe-area-inset-bottom, 0px));
+      border-radius: 0; border-width: 1px 0 0;
+      flex-direction: row; align-items: center; gap: 14px;
+      background: rgb(29 29 29 / 0.4);
     }
+    .ring-wrap { flex-direction: row; padding: 0; border: 0; gap: 10px; }
+    deepgram-voice-ring#ring { width: 3.5rem; height: 3.5rem; }
     .conversation .messages,
     .conversation .welcome-state,
     .conversation .toast-container { display: none !important; }
@@ -397,144 +364,123 @@
     /* Activity feed not shown on mobile */
     .activity { display: none; }
 
-    /* Big, prominent Turn On button */
     .controls {
-      padding: 14px 20px calc(18px + env(safe-area-inset-bottom, 0px));
-      background: var(--surface);
-      gap: 12px;
+      flex: 1; padding: 0; border: 0;
+      justify-content: flex-end;
     }
-    .controls .visualizer { display: none; }
-    .btn {
-      height: 56px;
-      padding: 0 32px;
-      font-size: 16px;
-      font-weight: 600;
-      border-radius: 28px;
-      min-width: 220px;
-      letter-spacing: 0.3px;
-    }
-    .btn-primary {
-      box-shadow: 0 4px 20px rgba(74,158,255,0.35);
-    }
+    .btn { height: 56px; padding: 0 28px; font-size: .85rem; min-width: 160px; }
 
     /* Roomier hint cards for touch targets */
-    .hint { padding: 16px 18px; }
-    .hint-num { font-size: 12px; }
-    .hint-title { font-size: 15px; margin-bottom: 5px; }
-    .hint-example { font-size: 14px; line-height: 1.5; }
+    .hint { padding: 18px 20px; }
 
-    /* Slightly larger widget text for readability */
-    .widget-title { font-size: 12px; }
-    .widget-label, .widget-value { font-size: 12px; }
-    .slide-card-title { font-size: 12px; }
-    .slide-hero { font-size: 22px; }
-    .slide-caption { font-size: 11px; }
-
-    /* Chart widgets get a bit more height on mobile */
+    /* Charts get a bit more height on mobile */
     .chart-wrap { height: 200px; }
 
-    /* Hide "Smart City Intelligence" subheader on small screens */
-    .logo-sub { display: none; }
+    /* Hide "Smart city intelligence" and the byline text on small screens */
+    .logo-sub, .byline span { display: none; }
+  }
+  @media (max-width: 480px) {
+    .header { padding: 0 16px; }
+    .header-right { gap: 14px; }
+    .btn { min-width: 0; flex: 1; }
   }
 </style>
 </head>
-<body>
+<body class="stage-glow">
 
 <div class="app">
   <!-- Header -->
   <header class="header">
     <div class="logo">
-      <div class="logo-mark">E</div>
+      <div class="logo-mark" aria-hidden="true">E</div>
       <div>
         <div class="logo-text">Eve</div>
-        <div class="logo-sub">Smart City Intelligence</div>
+        <div class="logo-sub label">Smart city intelligence</div>
       </div>
     </div>
     <div class="header-right">
-      <div class="status-dot" id="statusDot"></div>
-      <span class="status-label" id="statusLabel">Offline</span>
+      <div class="status">
+        <div class="status-dot" id="statusDot"></div>
+        <span class="status-label label" id="statusLabel">Offline</span>
+      </div>
+      <div class="byline"><span>Voice AI by</span><img src="/static/vdui/logos/deepgram.svg" alt="Deepgram"></div>
     </div>
   </header>
 
   <!-- Left: Dynamic Widget Dashboard -->
   <div class="panel dashboard" id="dashboard">
-    <div class="panel-title">City Systems</div>
+    <h2 class="panel-title label">City systems</h2>
     <div class="widget-container" id="widgetContainer">
       <div id="widgetEmpty">
         <div class="widget-empty">
-          <div class="widget-empty-icon">E</div>
-          Tap <strong>Turn On</strong>, then say <strong>"Hey Eve"</strong> to activate.<br>
+          Press <strong>Turn on</strong>, then say <strong>“Hey Eve”</strong> to activate.<br>
           Widgets appear as Eve processes queries.
         </div>
-        <div class="panel-title" style="padding-left:4px">Try Saying</div>
+        <h3 class="panel-title label" style="padding-left:4px">Try saying</h3>
         <div class="scenario-hints" style="padding:0">
-          <div class="hint">
-            <div class="hint-num">01</div>
-            <div class="hint-title">Command & Control</div>
-            <div class="hint-example">"Give me a status overlay of the Phase 1 power grid"</div>
+          <div class="hint glass">
+            <div class="hint-num label">01</div>
+            <div class="hint-title">Command and control</div>
+            <div class="hint-example">“Give me a status overlay of the Phase 1 power grid”</div>
           </div>
-          <div class="hint">
-            <div class="hint-num">02</div>
-            <div class="hint-title">Frictionless Resident</div>
-            <div class="hint-example">"Book a pod, order my coffee, and cool my office to 22"</div>
+          <div class="hint glass">
+            <div class="hint-num label">02</div>
+            <div class="hint-title">Frictionless resident</div>
+            <div class="hint-example">“Book a pod, order my coffee, and cool my office to 22”</div>
           </div>
-          <div class="hint">
-            <div class="hint-num">03</div>
-            <div class="hint-title">Smart Work</div>
-            <div class="hint-example">"Analyze last month's Smart Grid revenue"</div>
+          <div class="hint glass">
+            <div class="hint-num label">03</div>
+            <div class="hint-title">Smart work</div>
+            <div class="hint-example">“Analyze last month’s Smart Grid revenue”</div>
           </div>
-          <div class="hint">
-            <div class="hint-num">04</div>
-            <div class="hint-title">Proactive Guardian</div>
-            <div class="hint-example">"What's the weather alert status?"</div>
+          <div class="hint glass">
+            <div class="hint-num label">04</div>
+            <div class="hint-title">Proactive guardian</div>
+            <div class="hint-example">“What’s the weather alert status?”</div>
           </div>
-          <div class="hint">
-            <div class="hint-num">05</div>
-            <div class="hint-title">Board Prep</div>
-            <div class="hint-example">"Draft a presentation of last quarter's financials for my board meeting today"</div>
+          <div class="hint glass">
+            <div class="hint-num label">05</div>
+            <div class="hint-title">Board prep</div>
+            <div class="hint-example">“Draft a presentation of last quarter’s financials for my board meeting today”</div>
           </div>
-          <div class="hint">
-            <div class="hint-num">06</div>
-            <div class="hint-title">Visitor Concierge</div>
-            <div class="hint-example">"What can I do in Harbour City today?"</div>
+          <div class="hint glass">
+            <div class="hint-num label">06</div>
+            <div class="hint-title">Visitor concierge</div>
+            <div class="hint-example">“What can I do in Harbour City today?”</div>
           </div>
-          <div class="hint">
-            <div class="hint-num">07</div>
+          <div class="hint glass">
+            <div class="hint-num label">07</div>
             <div class="hint-title">Square Payment</div>
-            <div class="hint-example">"Pay my $4.50 Marina parking fee with Square"</div>
+            <div class="hint-example">“Pay my $4.50 Marina parking fee with Square”</div>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Center: Transcript -->
-  <div class="conversation">
+  <!-- Center: the voice session -->
+  <div class="conversation glass">
+    <div class="ring-wrap">
+      <deepgram-voice-ring id="ring" state="listening" aria-hidden="true"></deepgram-voice-ring>
+    </div>
     <div class="messages" id="messages">
       <div class="welcome-state" id="welcome">
-        <div class="welcome-icon">E</div>
         <div class="welcome-text">
           Start a session, then say<br>
-          <strong>"Hey Eve"</strong> to begin
+          <strong>“Hey Eve”</strong> to begin.
         </div>
       </div>
     </div>
     <div class="toast-container" id="toastContainer"></div>
     <div class="controls">
-      <div class="visualizer" id="visualizer">
-        <div class="viz-bar"></div><div class="viz-bar"></div><div class="viz-bar"></div>
-        <div class="viz-bar"></div><div class="viz-bar"></div><div class="viz-bar"></div>
-        <div class="viz-bar"></div><div class="viz-bar"></div><div class="viz-bar"></div>
-        <div class="viz-bar"></div><div class="viz-bar"></div><div class="viz-bar"></div>
-      </div>
-      <button class="btn btn-primary" id="startBtn" onclick="startSession()">Turn On</button>
+      <button class="btn btn-primary" id="startBtn" onclick="startSession()">Turn on</button>
       <button class="btn btn-stop" id="stopBtn" onclick="stopSession()" style="display:none">Stop</button>
     </div>
   </div>
 
   <!-- Right: Activity Log -->
   <div class="panel activity">
-    <div class="panel-title">Activity</div>
+    <h2 class="panel-title label">Activity</h2>
     <div id="activityFeed"></div>
   </div>
 </div>
@@ -602,7 +548,7 @@ async function startSession() {
     setStatus('ambient');
   } catch (err) {
     console.error('[SAGA] startSession error:', err);
-    alert('Microphone access required');
+    alert('We couldn’t use your microphone. Allow microphone access in your browser, then try again.');
     document.getElementById('startBtn').style.display = '';
     document.getElementById('stopBtn').style.display = 'none';
   }
@@ -879,13 +825,14 @@ const activeWidgets = {};
 
 const chartInstances = {};
 
-const CHART_PALETTE = {
-  blue:  { bg: 'rgba(74,158,255,0.55)',  border: '#4a9eff' },
-  green: { bg: 'rgba(52,211,153,0.55)',  border: '#34d399' },
-  amber: { bg: 'rgba(251,191,36,0.55)',  border: '#fbbf24' },
-  red:   { bg: 'rgba(248,113,113,0.55)', border: '#f87171' },
-};
-const DONUT_RING = ['#4a9eff', '#34d399', '#fbbf24', '#f87171', '#a78bfa', '#22d3ee', '#fb7185'];
+// Chart colors are the brand kit's tokens (static/vdui/brand.css), read once from the page.
+const brandColor = (name) => getComputedStyle(document.documentElement).getPropertyValue('--color-' + name).trim();
+const withAlpha = (hex, a) => hex + Math.round(a * 255).toString(16).padStart(2, '0');
+const CHART_PALETTE = Object.fromEntries(
+  [['blue', 'ring-blue'], ['green', 'lime'], ['amber', 'orange'], ['red', 'red']]
+    .map(([key, token]) => [key, { bg: withAlpha(brandColor(token), 0.55), border: brandColor(token) }])
+);
+const DONUT_RING = ['ring-blue', 'lime', 'orange', 'red', 'violet-3', 'yellow', 'paper'].map(brandColor);
 
 function buildChartConfig(result) {
   const palette = CHART_PALETTE[result.color] || CHART_PALETTE.blue;
@@ -907,7 +854,7 @@ function buildChartConfig(result) {
 
   if (type === 'doughnut') {
     ds.backgroundColor = DONUT_RING;
-    ds.borderColor = 'var(--surface-2)';
+    ds.borderColor = brandColor('ink');
     ds.borderWidth = 2;
     ds.cutout = '62%';
   } else {
@@ -915,8 +862,8 @@ function buildChartConfig(result) {
     ds.borderColor = palette.border;
   }
 
-  const axisTick = { color: '#6b6b7b', font: { size: 9, family: 'JetBrains Mono' } };
-  const gridStyle = { color: 'rgba(255,255,255,0.04)', drawBorder: false };
+  const axisTick = { color: 'rgba(255,255,255,0.7)', font: { size: 10, family: 'Azeret Mono' } };
+  const gridStyle = { color: 'rgba(255,255,255,0.08)', drawBorder: false };
 
   const scales = (type === 'doughnut' || isSparkline) ? {} : {
     x: { ticks: axisTick, grid: gridStyle, border: { display: false } },
@@ -934,13 +881,13 @@ function buildChartConfig(result) {
         legend: {
           display: type === 'doughnut',
           position: 'right',
-          labels: { color: '#9a9aad', font: { size: 9 }, boxWidth: 8, padding: 6, usePointStyle: true },
+          labels: { color: 'rgba(255,255,255,0.85)', font: { size: 10, family: 'Work Sans' }, boxWidth: 8, padding: 6, usePointStyle: true },
         },
         tooltip: {
-          backgroundColor: '#12121a',
-          titleColor: '#e8e8ed',
-          bodyColor: '#e8e8ed',
-          borderColor: 'rgba(255,255,255,0.08)',
+          backgroundColor: brandColor('ink'),
+          titleColor: brandColor('paper'),
+          bodyColor: brandColor('paper'),
+          borderColor: 'rgba(255,255,255,0.15)',
           borderWidth: 1,
           padding: 8,
           callbacks: {
