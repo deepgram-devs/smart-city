@@ -95,8 +95,12 @@
   }
   .widget-empty strong { color: var(--color-paper); font-weight: 600; }
 
-  /* Individual widget card: frosted glass on the stage */
+  /* Individual widget card: frosted glass on the stage (the kit's glass utility;
+     widgets are built in JS, so the rule lives here rather than as a class) */
   .widget {
+    -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+    background: rgb(255 255 255 / 0.05);
+    border: 1px solid rgb(255 255 255 / 0.1);
     border-radius: 1.5rem;
     margin-bottom: 12px;
     overflow: hidden;
